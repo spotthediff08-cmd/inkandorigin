@@ -425,7 +425,13 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         val currentScene = scenes[currentIndex]
         val sceneDurationMs = (currentScene.duration * 1000).toLong().coerceAtLeast(1L)
         val progress = (remainingMs.toFloat() / sceneDurationMs).coerceIn(0f, 1f)
-        val scale = when (currentScene.motion) {
+        val previewMotion = when (currentScene.motion) {
+            "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[currentIndex % 5]
+            "Alternate" -> if (currentIndex % 2 == 0) "Zoom In" else "Zoom Out"
+            else -> currentScene.motion
+        }
+        val scale = when (previewMotion) {
+            "Static" -> 1f
             "Zoom In", "Auto Zoom" -> 1f + 0.12f * progress
             "Zoom Out" -> 1.12f - 0.12f * progress
             "Zoom In-Out" -> 1f + 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
@@ -448,13 +454,13 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
-                                translationX = when (currentScene.motion) {
+                                translationX = when (previewMotion) {
                                     "Pan Left" -> 36f - 72f * progress
                                     "Pan Right" -> -36f + 72f * progress
                                     "Ken Burns", "Cinematic", "Zoom+Pan" -> -24f + 48f * progress
                                     else -> 0f
                                 }
-                                translationY = when (currentScene.motion) {
+                                translationY = when (previewMotion) {
                                     "Pan Up" -> 36f - 72f * progress
                                     "Pan Down" -> -36f + 72f * progress
                                     else -> 0f
@@ -463,7 +469,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         )
                         Text(currentScene.name, color = Color.White, modifier = Modifier.align(Alignment.BottomStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
                     }
-                    Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + currentScene.motion, color = Muted, fontSize = 12.sp)
+                    Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
                     Slider(value = previewPositionMs.toFloat(), onValueChange = { previewPositionMs = it.toLong(); previewPlaying = false }, valueRange = 0f..previewTotalMs.toFloat())
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("%.1f".format(previewPositionMs / 1000f) + "s / " + "%.1f".format(previewTotalMs / 1000f) + "s", color = Muted, modifier = Modifier.weight(1f))
