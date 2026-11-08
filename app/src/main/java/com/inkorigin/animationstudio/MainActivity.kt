@@ -2,6 +2,7 @@ package com.inkorigin.animationstudio
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.io.FileOutputStream
@@ -76,9 +77,12 @@ fun StudioApp() {
     var projectId by remember { mutableStateOf("project_" + System.currentTimeMillis()) }
     var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
     var showProjects by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    var exportStatus by remember { mutableStateOf("Ready to export") }
+    var lastExportUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) } }
-    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion) {
+    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground) {
         delay(900)
         runCatching {
             withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground) }
@@ -147,7 +151,7 @@ fun StudioApp() {
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, { scenes = it }, { imagePicker.launch("image/*") }, globalMotion, { globalMotion = it })
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes) { scenes = it }
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, status)
+                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete" }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { lastExportUri?.let { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) } }, status)
             }
         }
     }
@@ -441,7 +445,7 @@ fun SubtitlePage(
 }
 
 @Composable
-fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, status:String) {
+fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, exporting: Boolean, exportStatus: String, onExport: () -> Unit, onShare: () -> Unit, status:String) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Export video", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
@@ -460,11 +464,17 @@ fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: Strin
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(16.dp)) {
-                Text("Export engine", fontWeight = FontWeight.Bold)
-                Text("This fresh project includes the interface and asset workflow foundation. Actual MP4 rendering, subtitle burn-in, and final encoding are not yet connected; they require the video-rendering engine in a later tested build.", color = Muted, fontSize = 13.sp)
+                Text("MP4 rendering", fontWeight = FontWeight.Bold)
+                Text("H.264 video • AAC voiceover • SRT subtitle burn-in • 30 fps", color = Muted, fontSize = 13.sp)
             }
         }
-        Text(status, color = Accent)
+        Button(onClick = onExport, enabled = count > 0 && !exporting, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(8.dp)); Text(if (exporting) "Rendering…" else "Export MP4")
+        }
+        if (exporting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(exportStatus, color = Accent)
+        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = onShare, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
+        Text(status, color = Muted, fontSize = 11.sp)
     }
 }
 
