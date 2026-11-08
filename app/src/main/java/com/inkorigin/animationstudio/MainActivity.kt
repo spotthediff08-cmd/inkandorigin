@@ -273,6 +273,65 @@ fun naturalKey(value: String): String = value.lowercase().replace(Regex("\\d+"))
 }
 
 
+
+private fun detectBlankPanels(bitmap: Bitmap, grid: Int): Set<Int> {
+    val blanks = mutableSetOf<Int>()
+
+    for (index in 0 until grid * grid) {
+        val row = index / grid
+        val col = index % grid
+        val left = col * bitmap.width / grid
+        val top = row * bitmap.height / grid
+        val right = (col + 1) * bitmap.width / grid
+        val bottom = (row + 1) * bitmap.height / grid
+
+        var sum = 0.0
+        var sumSq = 0.0
+        var count = 0
+
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                val px = (left + (x + 0.5) * (right - left) / 8)
+                    .toInt().coerceIn(left, right - 1)
+                val py = (top + (y + 0.5) * (bottom - top) / 8)
+                    .toInt().coerceIn(top, bottom - 1)
+                val color = bitmap.getPixel(px, py)
+                val gray = (
+                    0.299 * android.graphics.Color.red(color) +
+                    0.587 * android.graphics.Color.green(color) +
+                    0.114 * android.graphics.Color.blue(color)
+                )
+                sum += gray
+                sumSq += gray * gray
+                count++
+            }
+        }
+
+        val mean = sum / count
+        val variance = sumSq / count - mean * mean
+
+        if ((mean > 245 || mean < 10) && variance < 35) {
+            blanks.add(index)
+        }
+    }
+    return blanks
+}
+
+private fun panelSignature(bitmap: Bitmap): String {
+    val result = StringBuilder()
+    for (y in 0 until 8) {
+        for (x in 0 until 8) {
+            val px = (x * bitmap.width / 8).coerceIn(0, bitmap.width - 1)
+            val py = (y * bitmap.height / 8).coerceIn(0, bitmap.height - 1)
+            val c = bitmap.getPixel(px, py)
+            result.append(android.graphics.Color.red(c) / 8).append(',')
+            result.append(android.graphics.Color.green(c) / 8).append(',')
+            result.append(android.graphics.Color.blue(c) / 8).append(';')
+        }
+    }
+    return result.toString()
+}
+
 @Composable
 fun StoryboardPage(
     modifier: Modifier,
@@ -280,137 +339,284 @@ fun StoryboardPage(
     onScenesChange: (List<Scene>) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var storyboardUri by remember { mutableStateOf<Uri?>(null) }
-    val selectedPanels = remember {
-        mutableStateListOf<Int>().apply { addAll(0..8) }
-    }
-    var status by remember { mutableStateOf("Select a 3×3 storyboard image") }
+    var gridSize by remember { mutableIntStateOf(3) }
+    var blankPanels by remember { mutableStateOf(setOf<Int>()) }
+    var status by remember { mutableStateOf("Choose a storyboard image") }
+    var processing by remember { mutableStateOf(false) }
+
+    val selectedPanels = remember { mutableStateListOf<Int>() }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         storyboardUri = uri
+        blankPanels = emptySet()
         selectedPanels.clear()
-        selectedPanels.addAll(0..8)
-        status = if (uri != null) "Image ready to split" else "No image selected"
+        status = if (uri != null) "Checking storyboard panels..." else "No image selected"
+    }
+
+    LaunchedEffect(storyboardUri, gridSize) {
+        val uri = storyboardUri ?: return@LaunchedEffect
+        try {
+            val blanks = withContext(Dispatchers.IO) {
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: throw Exception("Cannot open image")
+                val bitmap = input.use { BitmapFactory.decodeStream(it) }
+                    ?: throw Exception("Invalid image")
+                try {
+                    if (bitmap.width < gridSize || bitmap.height < gridSize) {
+                        throw Exception("Image resolution is too small")
+                    }
+                    detectBlankPanels(bitmap, gridSize)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+
+            blankPanels = blanks
+            selectedPanels.clear()
+            selectedPanels.addAll(
+                (0 until gridSize * gridSize).filterNot { it in blanks }
+            )
+            status = if (blanks.isEmpty()) {
+                "Panel check complete. Select panels to split."
+            } else {
+                "${blanks.size} possible blank panels detected. Check selection."
+            }
+        } catch (e: Exception) {
+            status = "Detection error: ${e.message}"
+        }
     }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Storyboard Splitter", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-        Text("Select one image containing 9 equal panels.", color = Muted)
+        Text("Storyboard Pro", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "Split contact sheets into individual scene images.",
+            color = Muted
+        )
 
         Button(
             onClick = { picker.launch("image/*") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !processing
         ) {
             Text("Select Storyboard Image")
+        }
+
+        Text("Choose Grid Size", fontWeight = FontWeight.Bold)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(2, 3, 4).forEach { size ->
+                if (gridSize == size) {
+                    Button(
+                        onClick = { gridSize = size },
+                        modifier = Modifier.weight(1f),
+                        enabled = !processing
+                    ) {
+                        Text("${size}×${size}")
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { gridSize = size },
+                        modifier = Modifier.weight(1f),
+                        enabled = !processing
+                    ) {
+                        Text("${size}×${size}")
+                    }
+                }
+            }
         }
 
         storyboardUri?.let { uri ->
             AsyncImage(
                 model = uri,
                 contentDescription = "Storyboard preview",
-                modifier = Modifier.fillMaxWidth().height(180.dp),
+                modifier = Modifier.fillMaxWidth().height(190.dp),
                 contentScale = ContentScale.Fit
             )
 
-            Text("Tap panels to include or exclude them.", color = Muted)
+            Text("Tap a panel to select or deselect it.", color = Muted)
 
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                repeat(3) { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        repeat(3) { col ->
-                            val index = row * 3 + col
-                            val selected = index in selectedPanels
+            repeat(gridSize) { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    repeat(gridSize) { col ->
+                        val index = row * gridSize + col
+                        val selected = index in selectedPanels
+                        val blank = index in blankPanels
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .background(
-                                        if (selected) Accent else Panel,
-                                        RoundedCornerShape(9.dp)
-                                    )
-                                    .clickable {
-                                        if (selected) selectedPanels.remove(index)
-                                        else selectedPanels.add(index)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .background(
+                                    if (selected) Accent else Panel,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable(enabled = !processing) {
+                                    if (selected) selectedPanels.remove(index)
+                                    else selectedPanels.add(index)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     "AA_${(index + 1).toString().padStart(2, '0')}",
                                     color = if (selected) Color.Black else Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
+                                if (blank) {
+                                    Text(
+                                        "BLANK?",
+                                        color = if (selected) Color.Black else Muted,
+                                        fontSize = 9.sp
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Text("${selectedPanels.size} of 9 panels selected", color = Muted)
+            Text(
+                "${selectedPanels.size} selected • ${blankPanels.size} possible blank",
+                color = Muted
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        selectedPanels.clear()
+                        selectedPanels.addAll(
+                            (0 until gridSize * gridSize).filterNot { it in blankPanels }
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !processing
+                ) {
+                    Text("Select All Nonblank")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        selectedPanels.clear()
+                        selectedPanels.addAll(0 until gridSize * gridSize)
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !processing
+                ) {
+                    Text("Select All")
+                }
+            }
 
             Button(
                 onClick = {
-                    try {
-                        val input = context.contentResolver.openInputStream(uri)
-                            ?: throw Exception("Cannot open selected image")
+                    scope.launch {
+                        processing = true
+                        status = "Splitting panels..."
+                        try {
+                            val result = withContext(Dispatchers.IO) {
+                                val input = context.contentResolver.openInputStream(uri)
+                                    ?: throw Exception("Cannot open image")
+                                val bitmap = input.use {
+                                    BitmapFactory.decodeStream(it)
+                                } ?: throw Exception("Invalid image")
 
-                        val bitmap = input.use { BitmapFactory.decodeStream(it) }
-                            ?: throw Exception("Invalid image")
+                                try {
+                                    val folder = File(
+                                        context.filesDir,
+                                        "storyboard/${System.currentTimeMillis()}"
+                                    )
+                                    if (!folder.mkdirs() && !folder.isDirectory) {
+                                        throw Exception("Cannot create output folder")
+                                    }
 
-                        if (bitmap.width < 3 || bitmap.height < 3) {
-                            bitmap.recycle()
-                            throw Exception("Image is too small")
-                        }
+                                    val signatures = mutableSetOf<String>()
+                                    val added = mutableListOf<Scene>()
+                                    var duplicates = 0
 
-                        val folder = File(
-                            context.filesDir,
-                            "storyboard/${System.currentTimeMillis()}"
-                        )
-                        if (!folder.mkdirs() && !folder.isDirectory) {
-                            bitmap.recycle()
-                            throw Exception("Cannot create output folder")
-                        }
+                                    for (index in selectedPanels.sorted()) {
+                                        val row = index / gridSize
+                                        val col = index % gridSize
+                                        val left = col * bitmap.width / gridSize
+                                        val top = row * bitmap.height / gridSize
+                                        val right = (col + 1) * bitmap.width / gridSize
+                                        val bottom = (row + 1) * bitmap.height / gridSize
 
-                        val addedScenes = selectedPanels.sorted().map { index ->
-                            val row = index / 3
-                            val col = index % 3
-                            val left = col * bitmap.width / 3
-                            val top = row * bitmap.height / 3
-                            val right = (col + 1) * bitmap.width / 3
-                            val bottom = (row + 1) * bitmap.height / 3
+                                        val crop = Bitmap.createBitmap(
+                                            bitmap, left, top,
+                                            right - left, bottom - top
+                                        )
 
-                            val crop = Bitmap.createBitmap(
-                                bitmap, left, top, right - left, bottom - top
-                            )
-                            val filename =
-                                "AA_${(index + 1).toString().padStart(2, '0')}.jpg"
-                            val file = File(folder, filename)
+                                        try {
+                                            val signature = panelSignature(crop)
+                                            if (!signatures.add(signature)) {
+                                                duplicates++
+                                                continue
+                                            }
 
-                            FileOutputStream(file).use {
-                                crop.compress(Bitmap.CompressFormat.JPEG, 95, it)
+                                            val filename =
+                                                "AA_${(index + 1).toString().padStart(2, '0')}.jpg"
+                                            val file = File(folder, filename)
+
+                                            FileOutputStream(file).use { output ->
+                                                if (!crop.compress(
+                                                        Bitmap.CompressFormat.JPEG,
+                                                        95,
+                                                        output
+                                                    )
+                                                ) {
+                                                    throw Exception("Could not save $filename")
+                                                }
+                                            }
+                                            added.add(Scene(Uri.fromFile(file), filename))
+                                        } finally {
+                                            crop.recycle()
+                                        }
+                                    }
+
+                                    Pair(added, duplicates)
+                                } finally {
+                                    bitmap.recycle()
+                                }
                             }
-                            crop.recycle()
-                            Scene(Uri.fromFile(file), filename)
-                        }
 
-                        bitmap.recycle()
-                        onScenesChange(
-                            (scenes + addedScenes).sortedWith(compareBy { naturalKey(it.name) })
-                        )
-                        status = "${addedScenes.size} panels added to Scenes"
-                    } catch (e: Exception) {
-                        status = "Error: ${e.message ?: "Could not split image"}"
+                            val addedScenes = result.first
+                            onScenesChange(
+                                (scenes + addedScenes).sortedWith(
+                                    compareBy<Scene> { naturalKey(it.name) }
+                                )
+                            )
+                            status =
+                                "${addedScenes.size} panels added. ${result.second} duplicates skipped."
+                        } catch (e: Exception) {
+                            status = "Split error: ${e.message ?: "Unknown error"}"
+                        } finally {
+                            processing = false
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = selectedPanels.isNotEmpty()
+                enabled = selectedPanels.isNotEmpty() && !processing
             ) {
-                Text("Split & Add to Scenes")
+                Text(if (processing) "Processing..." else "Split & Add to Scenes")
             }
         }
 
