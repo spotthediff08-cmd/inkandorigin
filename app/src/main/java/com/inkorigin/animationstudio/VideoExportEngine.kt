@@ -27,6 +27,7 @@ import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.ProgressHolder
 import java.io.File
 import java.util.Locale
 import kotlin.math.max
@@ -48,6 +49,22 @@ data class ExportSettings(
 
 @UnstableApi
 object VideoExportEngine {
+    @Volatile private var activeTransformer: Transformer? = null
+    @Volatile private var cancelRequested: Boolean = false
+
+    fun progressPercent(): Int? {
+        val current = activeTransformer ?: return null
+        val holder = ProgressHolder()
+        return runCatching {
+            if (current.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) holder.progress else null
+        }.getOrNull()
+    }
+
+    fun cancel() {
+        cancelRequested = true
+        runCatching { activeTransformer?.cancel() }
+    }
+
     fun export(
         context: Context,
         scenes: List<Scene>,
@@ -127,6 +144,8 @@ object VideoExportEngine {
             .setAudioMimeType(MimeTypes.AUDIO_AAC)
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                    activeTransformer = null
+                    cancelRequested = false
                     Thread {
                         runCatching { publishToGallery(context, output) }
                             .onSuccess { uri -> output.delete(); Handler(Looper.getMainLooper()).post { onCompleted(uri) } }
@@ -135,17 +154,27 @@ object VideoExportEngine {
                 }
 
                 override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
+                    val wasCancelled = cancelRequested
+                    activeTransformer = null
+                    cancelRequested = false
                     output.delete()
                     Handler(Looper.getMainLooper()).post {
-                        onError(exportException.message ?: "Video export failed on this device.")
+                        onError(if (wasCancelled) "Export cancelled" else exportException.message ?: "Video export failed on this device.")
                     }
                 }
             })
             .build()
+        activeTransformer = transformer
+        cancelRequested = false
         runCatching {
             onStarted()
             transformer.start(composition, output.absolutePath)
-        }.onFailure { onError(it.message ?: "Could not start video export.") }
+        }.onFailure {
+            activeTransformer = null
+            cancelRequested = false
+            output.delete()
+            onError(it.message ?: "Could not start video export.")
+        }
     }
 
     private fun outputSize(resolution: String, aspectRatio: String): Pair<Int, Int> {
