@@ -237,7 +237,8 @@ private class SubtitleCanvasOverlay(
         stroke.color = android.graphics.Color.BLACK
         stroke.strokeWidth = max(2f, size * 0.10f)
         val maxWidth = w * 0.88f
-        val lines = wrap(cue.text, fill, maxWidth)
+        val words = cue.text.split(Regex("\\s+")).filter { it.isNotBlank() }
+        val lines = wrapWords(words, fill, maxWidth)
         val lineHeight = size * 1.22f
         val blockHeight = lineHeight * lines.size
         val firstBaseline = when (settings.subtitlePosition) {
@@ -245,32 +246,53 @@ private class SubtitleCanvasOverlay(
             "Center" -> (h - blockHeight) / 2f + size
             else -> h * 0.86f - blockHeight + size
         }
+        val lineWidths = lines.map { line -> line.sumOf { fill.measureText(it).toDouble() }.toFloat() + max(0, line.size - 1) * fill.measureText(" ") }
         if (settings.subtitleBackground) {
-            val widest = lines.maxOfOrNull { fill.measureText(it) } ?: 0f
+            val widest = lineWidths.maxOrNull() ?: 0f
             val rect = RectF(w / 2f - widest / 2f - size * 0.35f, firstBaseline - size,
                 w / 2f + widest / 2f + size * 0.35f, firstBaseline + blockHeight - lineHeight + size * 0.35f)
             canvas.drawRoundRect(rect, size * 0.18f, size * 0.18f, boxPaint)
         }
-        lines.forEachIndexed { index, line ->
-            val y = firstBaseline + index * lineHeight
-            if (settings.subtitleOutline) canvas.drawText(line, w / 2f, y, stroke)
-            canvas.drawText(line, w / 2f, y, fill)
+        val elapsed = (presentationTimeUs / 1000 - cue.startMs).coerceAtLeast(0)
+        val cueDuration = (cue.endMs - cue.startMs).coerceAtLeast(1)
+        val activeWord = ((elapsed.toDouble() / cueDuration) * words.size).toInt().coerceIn(0, max(0, words.lastIndex))
+        var wordIndex = 0
+        lines.forEachIndexed { lineIndex, line ->
+            val y = firstBaseline + lineIndex * lineHeight
+            var x = w / 2f - lineWidths[lineIndex] / 2f
+            line.forEachIndexed { itemIndex, word ->
+                val wordWidth = fill.measureText(word)
+                val centerX = x + wordWidth / 2f
+                if (settings.subtitleOutline) canvas.drawText(word, centerX, y, stroke)
+                fill.color = if (wordIndex == activeWord) android.graphics.Color.YELLOW else when (settings.subtitleColor) {
+                    "Yellow" -> android.graphics.Color.YELLOW
+                    "Cyan" -> android.graphics.Color.CYAN
+                    else -> android.graphics.Color.WHITE
+                }
+                canvas.drawText(word, centerX, y, fill)
+                x += wordWidth + fill.measureText(" ")
+                wordIndex++
+            }
         }
     }
 
-    private fun wrap(text: String, paint: Paint, maxWidth: Float): List<String> {
-        val output = mutableListOf<String>()
-        text.split("\n").forEach { paragraph ->
-            var line = ""
-            paragraph.split(Regex("\\s+")).forEach { word ->
-                val candidate = if (line.isEmpty()) word else "$line $word"
-                if (line.isNotEmpty() && paint.measureText(candidate) > maxWidth) {
-                    output += line
-                    line = word
-                } else line = candidate
+    private fun wrapWords(words: List<String>, paint: Paint, maxWidth: Float): List<List<String>> {
+        val output = mutableListOf<MutableList<String>>()
+        var line = mutableListOf<String>()
+        var width = 0f
+        words.forEach { word ->
+            val wordWidth = paint.measureText(word)
+            val extra = if (line.isEmpty()) wordWidth else paint.measureText(" ") + wordWidth
+            if (line.isNotEmpty() && width + extra > maxWidth) {
+                output += line
+                line = mutableListOf(word)
+                width = wordWidth
+            } else {
+                line += word
+                width += extra
             }
-            if (line.isNotEmpty()) output += line
         }
-        return output.ifEmpty { listOf("") }
+        if (line.isNotEmpty()) output += line
+        return output.ifEmpty { listOf(mutableListOf("")) }
     }
 }
