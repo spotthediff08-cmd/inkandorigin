@@ -97,8 +97,12 @@ fun StudioApp() {
     var exporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf("Ready to export") }
     var lastExportUri by remember { mutableStateOf<Uri?>(null) }
+    var exportHistory by remember { mutableStateOf(emptyList<ExportHistoryEntry>()) }
 
-    LaunchedEffect(Unit) { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) } }
+    LaunchedEffect(Unit) {
+        savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+        exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) }
+    }
     LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground) {
         delay(900)
         runCatching {
@@ -168,7 +172,7 @@ fun StudioApp() {
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete" }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { lastExportUri?.let { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) } }, status)
+                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
             }
         }
     }
@@ -472,7 +476,7 @@ fun SubtitlePage(
 }
 
 @Composable
-fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, exporting: Boolean, exportStatus: String, onExport: () -> Unit, onShare: () -> Unit, status:String) {
+fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, exporting: Boolean, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Export video", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
@@ -500,7 +504,21 @@ fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: Strin
         }
         if (exporting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(exportStatus, color = Accent)
-        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = onShare, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
+        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = { /* current export appears at the top of history */ history.firstOrNull()?.let(onShare) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
+        if (history.isNotEmpty()) {
+            Text("EXPORT HISTORY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            history.take(10).forEach { entry ->
+                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.fileName, maxLines = 1, fontWeight = FontWeight.SemiBold)
+                            Text(java.text.SimpleDateFormat("dd MMM yyyy • HH:mm", java.util.Locale.getDefault()).format(java.util.Date(entry.createdAt)), color = Muted, fontSize = 11.sp)
+                        }
+                        IconButton(onClick = { onShare(entry.uri) }) { Icon(Icons.Default.Share, "Share export") }
+                    }
+                }
+            }
+        }
         Text(status, color = Muted, fontSize = 11.sp)
     }
 }
