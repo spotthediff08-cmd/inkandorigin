@@ -89,7 +89,7 @@ object VideoExportEngine {
         val widthHeight = outputSize(settings.resolution, settings.aspectRatio)
         val cues = SubtitleEngine.parse(srtText)
         val videoItems = scenes.mapIndexed { sceneIndex, scene ->
-            val durationMs = (scene.duration.coerceIn(0.5f, 300f) * 1000).toLong()
+            val durationMs = (scene.duration.coerceIn(0.1f, 300f) * 1000).toLong()
             val mediaItem = MediaItem.Builder().setUri(scene.uri).setImageDurationMs(durationMs).build()
             val motion = motionEffect(scene.motion, durationMs, sceneIndex)
             EditedMediaItem.Builder(mediaItem)
@@ -101,7 +101,7 @@ object VideoExportEngine {
         val sceneBoundariesMs = mutableListOf<Long>()
         var sceneBoundaryMs = 0L
         scenes.dropLast(1).forEach { scene ->
-            sceneBoundaryMs += (scene.duration.coerceIn(0.5f, 300f) * 1000).toLong()
+            sceneBoundaryMs += (scene.duration.coerceIn(0.1f, 300f) * 1000).toLong()
             sceneBoundariesMs += sceneBoundaryMs
         }
         val sequences = mutableListOf(videoSequence)
@@ -125,7 +125,7 @@ object VideoExportEngine {
                             .setEndPositionMs(clippedDuration)
                             .build()
                     ).build()
-                EditedMediaItem.Builder(audioMediaItem).setDurationUs(audioDurationMs * 1000L).build()
+                EditedMediaItem.Builder(audioMediaItem).setDurationUs(clippedDuration * 1000L).build()
             } else {
                 EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build()
             }
