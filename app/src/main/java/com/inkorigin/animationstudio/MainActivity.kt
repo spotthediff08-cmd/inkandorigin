@@ -61,6 +61,23 @@ fun StudioApp() {
     val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf("Home") }
     var scenes by remember { mutableStateOf(listOf<Scene>()) }
+    var sceneUndo by remember { mutableStateOf(emptyList<List<Scene>>()) }
+    var sceneRedo by remember { mutableStateOf(emptyList<List<Scene>>()) }
+    fun updateScenes(next: List<Scene>) {
+        if (next != scenes) { sceneUndo = (sceneUndo + listOf(scenes)).takeLast(30); sceneRedo = emptyList(); scenes = next }
+    }
+    fun undoScenes() {
+        val previous = sceneUndo.lastOrNull() ?: return
+        sceneRedo = (sceneRedo + listOf(scenes)).takeLast(30)
+        sceneUndo = sceneUndo.dropLast(1)
+        scenes = previous
+    }
+    fun redoScenes() {
+        val next = sceneRedo.lastOrNull() ?: return
+        sceneUndo = (sceneUndo + listOf(scenes)).takeLast(30)
+        sceneRedo = sceneRedo.dropLast(1)
+        scenes = next
+    }
     var audio by remember { mutableStateOf<Uri?>(null) }
     var srtText by remember { mutableStateOf("") }
     var srtName by remember { mutableStateOf("No subtitle file selected") }
@@ -91,8 +108,8 @@ fun StudioApp() {
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
-            scenes = uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene") }
-                .sortedWith(compareBy { naturalKey(it.name) })
+            updateScenes(uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene") }
+                .sortedWith(compareBy { naturalKey(it.name) }))
             status = "${scenes.size} images imported"
         }
     }
@@ -148,8 +165,8 @@ fun StudioApp() {
         ) { padding ->
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
-                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, { scenes = it }, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; scenes = scenes.map { scene -> scene.copy(motion = selectedMotion) } })
-                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes) { scenes = it }
+                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes)
+                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete" }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { lastExportUri?.let { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) } }, status)
             }
@@ -179,6 +196,8 @@ fun StudioApp() {
                                                 projectId = loaded.id
                                                 projectName = loaded.name
                                                 scenes = loaded.scenes
+                                                sceneUndo = emptyList()
+                                                sceneRedo = emptyList()
                                                 audio = loaded.audio
                                                 srtText = loaded.srtText
                                                 resolution = loaded.resolution
@@ -218,6 +237,8 @@ fun StudioApp() {
                     projectId = "project_" + System.currentTimeMillis()
                     projectName = "Untitled Project"
                     scenes = emptyList()
+                    sceneUndo = emptyList()
+                    sceneRedo = emptyList()
                     audio = null
                     srtText = ""
                     srtName = "No subtitle file selected"
@@ -263,7 +284,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
         var previewScene = remember { mutableStateOf<Scene?>(null) }
 
@@ -274,6 +295,10 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Undo, null); Text("Undo") }
+                    OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Redo, null); Text("Redo") }
+                }
                 OutlinedButton(onClick = add, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(8.dp))
