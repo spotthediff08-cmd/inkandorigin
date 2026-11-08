@@ -55,6 +55,8 @@ data class Scene(val uri: Uri, val name: String, val duration: Float = 4f, val m
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudioApp() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf("Home") }
     var scenes by remember { mutableStateOf(listOf<Scene>()) }
     var audio by remember { mutableStateOf<Uri?>(null) }
@@ -76,6 +78,24 @@ fun StudioApp() {
         if (uri != null) {
             srtName = uri.lastPathSegment ?: "Subtitle file"
             status = "Reading subtitle file…"
+            scope.launch {
+                try {
+                    val loadedText = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+                            reader.readText().removePrefix("\uFEFF")
+                        } ?: throw IllegalStateException("Cannot open subtitle file")
+                    }
+                    srtText = loadedText
+                    val cueCount = Regex("""(?m)^\s*\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->""").findAll(loadedText).count()
+                    status = if (cueCount > 0) {
+                        "SRT loaded • $cueCount subtitle cues"
+                    } else {
+                        "Subtitle file loaded • no standard SRT timestamps detected"
+                    }
+                } catch (e: Exception) {
+                    status = "SRT import failed: ${e.message ?: "Unknown error"}"
+                }
+            }
         }
     }
 
