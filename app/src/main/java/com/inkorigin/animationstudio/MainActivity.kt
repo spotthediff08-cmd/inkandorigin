@@ -146,6 +146,73 @@ fun StudioApp() {
             }
         }
     }
+
+    if (showProjects) {
+        AlertDialog(
+            onDismissRequest = { showProjects = false },
+            title = { Text("Saved projects") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (savedProjects.isEmpty()) Text("No saved projects yet.")
+                    savedProjects.forEach { project ->
+                        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                Text(project.name, fontWeight = FontWeight.Bold)
+                                Text(project.sceneCount.toString() + " scenes", color = Muted, fontSize = 12.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                val loaded = withContext(Dispatchers.IO) { ProjectStore.load(context, project.id) }
+                                                projectId = loaded.id
+                                                projectName = loaded.name
+                                                scenes = loaded.scenes
+                                                audio = loaded.audio
+                                                srtText = loaded.srtText
+                                                resolution = loaded.resolution
+                                                aspectRatio = loaded.aspectRatio
+                                                globalMotion = loaded.globalMotion
+                                                status = "Project opened"
+                                                showProjects = false
+                                            }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
+                                        }
+                                    }) { Text("Open") }
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) }
+                                            savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                                        }
+                                    }) { Text("Duplicate") }
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) { ProjectStore.delete(context, project.id) }
+                                            savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                                        }
+                                    }) { Text("Delete", color = Color(0xFFFF7777)) }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showProjects = false }) { Text("Close") } },
+            dismissButton = {
+                TextButton(onClick = {
+                    projectId = "project_" + System.currentTimeMillis()
+                    projectName = "Untitled Project"
+                    scenes = emptyList()
+                    audio = null
+                    srtText = ""
+                    srtName = "No subtitle file selected"
+                    status = "New project created"
+                    showProjects = false
+                }) { Text("New project") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -236,12 +303,35 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 ) {
                     AsyncImage(scene.uri, scene.name, modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(scene.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text("${scene.duration} sec • $globalMotion", color = Muted, fontSize = 12.sp)
+                        Text("${scene.duration} sec • ${scene.motion}", color = Muted, fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration - 0.5f).coerceAtLeast(0.5f)) else it }) }) { Icon(Icons.Default.Remove, "Shorter") }
+                            IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration + 0.5f).coerceAtMost(60f)) else it }) }) { Icon(Icons.Default.Add, "Longer") }
+                            var motionExpanded by remember(scene.uri) { mutableStateOf(false) }
+                            Box {
+                                TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
+                                DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
+                                    listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Ken Burns", "Cinematic", "Random").forEach { motion ->
+                                        DropdownMenuItem(text = { Text(motion) }, onClick = {
+                                            update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
+                                            motionExpanded = false
+                                        })
+                                    }
+                                }
+                            }
+                        }
                     }
-                    IconButton(onClick = { update(scenes - scene) }) {
-                        Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777))
+                    Column {
+                        val sceneIndex = scenes.indexOf(scene)
+                        IconButton(onClick = {
+                            if (sceneIndex > 0) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex - 1, moving) })
+                        }, enabled = sceneIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                        IconButton(onClick = {
+                            if (sceneIndex < scenes.lastIndex) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex + 1, moving) })
+                        }, enabled = sceneIndex < scenes.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                        IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
                     }
                 }
             }
