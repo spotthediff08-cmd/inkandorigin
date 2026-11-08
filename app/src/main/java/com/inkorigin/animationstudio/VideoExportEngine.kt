@@ -77,6 +77,7 @@ object VideoExportEngine {
         audioUri: Uri?,
         srtText: String,
         settings: ExportSettings,
+        projectName: String = "AnimationStudio",
         onStarted: () -> Unit,
         onCompleted: (Uri) -> Unit,
         onError: (String) -> Unit
@@ -153,7 +154,7 @@ object VideoExportEngine {
                     activeTransformer = null
                     activeOutput = null
                     Thread {
-                        runCatching { publishToGallery(context, output) }
+                        runCatching { publishToGallery(context, output, projectName) }
                             .onSuccess { uri -> output.delete(); Handler(Looper.getMainLooper()).post { onCompleted(uri) } }
                             .onFailure { error -> output.delete(); Handler(Looper.getMainLooper()).post { onError(error.message ?: "Could not save exported video") } }
                     }.start()
@@ -226,8 +227,12 @@ object VideoExportEngine {
         }
     }
 
-    private fun publishToGallery(context: Context, source: File): Uri {
-        val name = "AnimationStudio_${System.currentTimeMillis()}.mp4"
+    private fun publishToGallery(context: Context, source: File, projectName: String): Uri {
+        val safeProjectName = projectName.trim()
+            .replace(Regex("[^\\p{L}\\p{N} _-]"), "_")
+            .take(48)
+            .ifBlank { "AnimationStudio" }
+        val name = "${safeProjectName}_${System.currentTimeMillis()}.mp4"
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, name)
