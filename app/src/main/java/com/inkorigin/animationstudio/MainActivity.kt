@@ -421,6 +421,7 @@ fun SubtitlePage(
                     Text(cues.firstOrNull()?.text ?: "Your subtitle preview appears here", color = when(color) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }, fontSize = fontSize.coerceIn(12, 48).sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
                 }
                 Text("Preview settings are saved with the project. Outline and final burn-in are applied during video rendering.", color = Muted, fontSize = 11.sp)
+                Text("Word highlighting is spread evenly across each SRT cue. It is approximate unless your subtitles contain word-level timestamps.", color = Muted, fontSize = 11.sp)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -741,7 +742,7 @@ fun StoryboardPage(
                 OutlinedButton(
                     onClick = {
                         selectedPanels.clear()
-                        selectedPanels.addAll((0 until gridSize * gridSize).filterNot { it in blankPanels })
+                        selectedPanels.addAll(0 until gridSize * gridSize)
                     },
                     modifier = Modifier.weight(1f),
                     enabled = !processing
