@@ -75,9 +75,12 @@ object VideoExportEngine {
         if (audioUri != null) {
             val totalVideoDurationMs = scenes.sumOf { (it.duration.coerceIn(0.5f, 300f) * 1000).toLong() }
             val audioDurationMs = runCatching {
-                MediaMetadataRetriever().use { retriever ->
+                val retriever = MediaMetadataRetriever()
+                try {
                     retriever.setDataSource(context, audioUri)
                     retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+                } finally {
+                    retriever.release()
                 }
             }.getOrNull()
             val audioItem = if (audioDurationMs != null && audioDurationMs > 0) {
