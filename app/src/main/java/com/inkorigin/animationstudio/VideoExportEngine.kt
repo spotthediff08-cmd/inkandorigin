@@ -92,7 +92,7 @@ object VideoExportEngine {
                             .setEndPositionMs(clippedDuration)
                             .build()
                     ).build()
-                EditedMediaItem.Builder(audioMediaItem).setDurationUs(clippedDuration * 1000L).build()
+                EditedMediaItem.Builder(audioMediaItem).setDurationUs(audioDurationMs * 1000L).build()
             } else {
                 EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build()
             }
