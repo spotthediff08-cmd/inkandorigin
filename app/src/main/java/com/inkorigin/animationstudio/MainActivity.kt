@@ -337,6 +337,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     val context = LocalContext.current
     val latestPreviewPlaying by rememberUpdatedState(previewPlaying)
     var previewAudioReady by remember(audioUri, showTimelinePreview) { mutableStateOf(false) }
+    var previewAudioFailed by remember(audioUri, showTimelinePreview) { mutableStateOf(false) }
     var previewPlayer by remember(audioUri, showTimelinePreview) { mutableStateOf<MediaPlayer?>(null) }
 
     DisposableEffect(audioUri, showTimelinePreview) {
@@ -347,6 +348,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                     ownedPlayer = player
                     player.setOnPreparedListener { prepared ->
                         previewAudioReady = true
+                        previewAudioFailed = false
                         if (latestPreviewPlaying) runCatching {
                             if (previewPositionMs < prepared.duration) {
                                 prepared.seekTo(previewPositionMs.toInt().coerceAtLeast(0))
@@ -363,6 +365,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 }
             }.onFailure {
                 previewAudioReady = false
+                previewAudioFailed = true
                 previewPlayer = null
             }
         }
@@ -370,6 +373,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             runCatching { ownedPlayer?.let { if (it.isPlaying) it.pause(); it.release() } }
             previewPlayer = null
             previewAudioReady = false
+            previewAudioFailed = false
         }
     }
 
@@ -577,7 +581,16 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             Text(if (previewPlaying) "Pause" else "Play")
                         }
                     }
-                    Text(if (audioUri != null) "Voiceover audio plays with the visual timeline. SRT subtitles follow the preview position." else "No voiceover selected. Visual timeline and SRT subtitles are previewed without audio.", color = Muted, fontSize = 11.sp)
+                    Text(
+                        when {
+                            audioUri == null -> "No voiceover selected. Visual timeline and SRT subtitles are previewed without audio."
+                            previewAudioFailed -> "Voiceover preview could not be opened. Visual timeline and subtitles remain available."
+                            !previewAudioReady -> "Preparing voiceover audio…"
+                            else -> "Voiceover audio plays with the visual timeline. SRT subtitles follow the preview position."
+                        },
+                        color = Muted,
+                        fontSize = 11.sp
+                    )
                 }
             }
         }
