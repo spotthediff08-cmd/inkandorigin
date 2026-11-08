@@ -136,37 +136,73 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>)->Unit, add:()->Unit, globalMotion: String, setGlobalMotion:(String)->Unit) {
-    LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold) }
-        item { OutlinedButton(onClick = add, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Add images") } }
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
-            Text("GLOBAL CAMERA MOTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded, { expanded = it }) {
-                OutlinedTextField(globalMotion, {}, readOnly = true, modifier = Modifier.menuAnchor().fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
-                ExposedDropdownMenu(expanded, { expanded = false }) {
-                    listOf("Static", "Auto Zoom", "Zoom In → Out", "Zoom Out → In", "Alternate", "Random", "Pan", "Ken Burns", "Cinematic").forEach { option ->
-                        DropdownMenuItem(text = { Text(option) }, onClick = { setGlobalMotion(option); expanded = false })
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                OutlinedButton(onClick = add, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add images")
+                }
+            }
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("GLOBAL CAMERA MOTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(globalMotion)
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Zoom Out-In", "Alternate", "Random", "Pan", "Ken Burns", "Cinematic").forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                setGlobalMotion(option)
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
         }
-        if (scenes.isEmpty()) item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
+
+        if (scenes.isEmpty()) {
+            item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
+        }
+
         items(scenes, key = { it.uri.toString() }) { scene ->
             Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth().padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     AsyncImage(scene.uri, null, modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(scene.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text("${scene.duration} sec • $globalMotion", color = Muted, fontSize = 12.sp)
                     }
-                    IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
+                    IconButton(onClick = { update(scenes - scene) }) {
+                        Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777))
+                    }
                 }
             }
         }
-        item { Text("Tip: select images in filename order (1, 2, 3…10).", color = Muted, fontSize = 12.sp) }
+
+        item {
+            Text("Tip: select images in filename order (1, 2, 3..10).", color = Muted, fontSize = 12.sp)
+        }
     }
 }
 
