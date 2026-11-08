@@ -158,6 +158,7 @@ object VideoExportEngine {
             val progress = (presentationTimeUs / (durationMs * 1000f)).coerceIn(0f, 1f)
             val matrix = android.graphics.Matrix()
             val scale = when (actualMotion) {
+                "Static" -> 1f
                 "Zoom In", "Auto Zoom" -> 1f + 0.12f * progress
                 "Zoom Out" -> 1.12f - 0.12f * progress
                 "Zoom In-Out" -> 1f + 0.10f * sin(progress * Math.PI).toFloat()
