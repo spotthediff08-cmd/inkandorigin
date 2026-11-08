@@ -183,7 +183,7 @@ fun StudioApp() {
         ) { padding ->
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { folderPicker.launch(null) }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
-                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes)
+                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, srtText)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -303,13 +303,15 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
     var previewPlaying by remember { mutableStateOf(false) }
     var previewPositionMs by remember { mutableLongStateOf(0L) }
     val previewTotalMs = scenes.sumOf { (it.duration.coerceAtLeast(0.5f) * 1000).toLong() }.coerceAtLeast(1L)
+    val previewCues = remember(srtText) { SubtitleEngine.parse(srtText) }
+    val activePreviewCue = SubtitleEngine.activeCue(previewCues, previewPositionMs)
     LaunchedEffect(previewPlaying) {
         while (previewPlaying && previewPositionMs < previewTotalMs) {
             delay(50)
@@ -467,7 +469,11 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 }
                             }
                         )
-                        Text(currentScene.name, color = Color.White, modifier = Modifier.align(Alignment.BottomStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
+                        Text(currentScene.name, color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
+                        activePreviewCue?.let { cue ->
+                            Text(cue.text, color = Color.White, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.align(Alignment.BottomCenter).padding(10.dp).background(Color(0xCC000000), RoundedCornerShape(6.dp)).padding(8.dp))
+                        }
                     }
                     Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
                     Slider(value = previewPositionMs.toFloat(), onValueChange = { previewPositionMs = it.toLong(); previewPlaying = false }, valueRange = 0f..previewTotalMs.toFloat())
