@@ -3,6 +3,7 @@ package com.inkorigin.animationstudio
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.content.Intent
+import androidx.documentfile.provider.DocumentFile
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.io.FileOutputStream
@@ -110,6 +111,18 @@ fun StudioApp() {
             savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
         }.onFailure { status = "Autosave error: " + (it.message ?: "Unknown error") }
     }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { folderUri ->
+        if (folderUri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            scope.launch {
+                val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
+                if (imported.isNotEmpty()) {
+                    updateScenes((scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image") }).sortedWith(compareBy { naturalKey(it.name) }))
+                    status = imported.size.toString() + " images imported from folder"
+                } else status = "No images found in selected folder"
+            }
+        }
+    }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
             updateScenes(uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene") }
@@ -168,7 +181,7 @@ fun StudioApp() {
             }
         ) { padding ->
             when(tab) {
-                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
+                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { folderPicker.launch(null) }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
@@ -255,7 +268,7 @@ fun StudioApp() {
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addImages:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addImages:()->Unit, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -273,6 +286,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
         item { OutlinedButton(onClick = openProjects, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Open / Manage Saved Projects") } }
         item { SectionTitle("IMPORT YOUR ASSETS") }
         item { ActionCard("Scene images", "$count images selected", Icons.Default.Image, addImages) }
+        item { ActionCard("Import image folder", "Add all images from a folder", Icons.Default.Folder, addFolder) }
         item { ActionCard("Voiceover", if(hasAudio) "Audio file selected" else "Choose narration audio", Icons.Default.Mic, addAudio) }
         item { ActionCard("Subtitles (SRT)", srt, Icons.Default.Subtitles, addSrt) }
         item {
@@ -536,6 +550,17 @@ fun ActionCard(title:String, detail:String, icon: androidx.compose.ui.graphics.v
 }
 @Composable fun SectionTitle(text:String) { Text(text, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
 @Composable fun EmptyHint(text:String) { Card(colors = CardDefaults.cardColors(containerColor = Panel)) { Text(text, Modifier.padding(18.dp), color = Muted) } }
+
+
+fun collectImageDocuments(folder: DocumentFile): List<DocumentFile> {
+    return folder.listFiles().flatMap { child ->
+        when {
+            child.isDirectory -> collectImageDocuments(child)
+            child.isFile && child.type?.startsWith("image/") == true -> listOf(child)
+            else -> emptyList()
+        }
+    }
+}
 
 fun naturalKey(value: String): String = value.lowercase().replace(Regex("\\d+")) { match ->
     match.value.padStart(12, '0')
