@@ -149,6 +149,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 @Composable
 fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
+        var previewScene = remember { mutableStateOf<Scene?>(null) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(16.dp),
@@ -198,7 +199,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                     Modifier.fillMaxWidth().padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AsyncImage(scene.uri, null, modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)))
+                    AsyncImage(scene.uri, scene.name, modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(scene.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -215,6 +216,33 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             Text("Tip: select images in filename order (1, 2, 3..10).", color = Muted, fontSize = 12.sp)
         }
     }
+
+    if (previewScene.value != null) {
+        val scene = previewScene.value!!
+        androidx.compose.ui.window.Dialog(onDismissRequest = { previewScene.value = null }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.Black,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.padding(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        IconButton(onClick = { previewScene.value = null }) {
+                            Icon(Icons.Default.Close, "Close preview", tint = Color.White)
+                        }
+                    }
+                    AsyncImage(
+                        model = scene.uri,
+                        contentDescription = scene.name,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 650.dp),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                    )
+                    Text(scene.name, color = Color.White, modifier = Modifier.padding(8.dp))
+                }
+            }
+        }
+    }
+
 }
 
 @Composable
@@ -311,7 +339,7 @@ private fun detectBlankPanels(bitmap: Bitmap, grid: Int): Set<Int> {
         val mean = sum / count
         val variance = sumSq / count - mean * mean
 
-        if ((mean > 245 || mean < 10) && variance < 35) {
+        if ((mean > 225 || mean < 35) && variance < 180) {
             blanks.add(index)
         }
     }
@@ -518,7 +546,7 @@ fun StoryboardPage(
                 OutlinedButton(
                     onClick = {
                         selectedPanels.clear()
-                        selectedPanels.addAll(0 until gridSize * gridSize)
+                        selectedPanels.addAll((0 until gridSize * gridSize).filterNot { it in blankPanels })
                     },
                     modifier = Modifier.weight(1f),
                     enabled = !processing
@@ -553,7 +581,7 @@ fun StoryboardPage(
                                     val added = mutableListOf<Scene>()
                                     var duplicates = 0
 
-                                    for (index in selectedPanels.sorted()) {
+                                    for (index in selectedPanels.filterNot { it in blankPanels }.sorted()) {
                                         val row = index / gridSize
                                         val col = index % gridSize
                                         val left = col * bitmap.width / gridSize
