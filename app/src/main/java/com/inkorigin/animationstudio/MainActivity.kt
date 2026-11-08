@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-data class Scene(val uri: Uri, val name: String, val duration: Float = 4f, val motion: String = "Auto Zoom")
+data class Scene(val uri: Uri, val name: String, val duration: Float = 4f, val motion: String = "Cinematic")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,9 +127,9 @@ fun StudioApp() {
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
-            updateScenes(uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene") }
-                .sortedWith(compareBy { naturalKey(it.name) }))
-            status = "${scenes.size} images imported"
+            val importedScenes = uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene", motion = globalMotion) }
+            updateScenes((scenes + importedScenes).sortedWith(compareBy { naturalKey(it.name) }))
+            status = "${importedScenes.size} images imported"
         }
     }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { audio = it; if (it != null) status = "Voiceover selected" }
