@@ -118,12 +118,13 @@ object VideoExportEngine {
                 override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                     Thread {
                         runCatching { publishToGallery(context, output) }
-                            .onSuccess { uri -> Handler(Looper.getMainLooper()).post { onCompleted(uri) } }
-                            .onFailure { error -> Handler(Looper.getMainLooper()).post { onError(error.message ?: "Could not save exported video") } }
+                            .onSuccess { uri -> output.delete(); Handler(Looper.getMainLooper()).post { onCompleted(uri) } }
+                            .onFailure { error -> output.delete(); Handler(Looper.getMainLooper()).post { onError(error.message ?: "Could not save exported video") } }
                     }.start()
                 }
 
                 override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
+                    output.delete()
                     Handler(Looper.getMainLooper()).post {
                         onError(exportException.message ?: "Video export failed on this device.")
                     }
