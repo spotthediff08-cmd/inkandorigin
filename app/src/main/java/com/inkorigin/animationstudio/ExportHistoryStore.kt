@@ -2,6 +2,7 @@ package com.inkorigin.animationstudio
 
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -26,7 +27,12 @@ object ExportHistoryStore {
 
     fun add(context: Context, uri: Uri) {
         val existing = list(context).filterNot { it.uri == uri }.toMutableList()
-        existing.add(0, ExportHistoryEntry(uri, uri.lastPathSegment ?: "AnimationStudio.mp4", System.currentTimeMillis()))
+        val displayName = runCatching {
+            context.contentResolver.query(uri, arrayOf(MediaStore.Video.Media.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull() ?: "AnimationStudio.mp4"
+        existing.add(0, ExportHistoryEntry(uri, displayName, System.currentTimeMillis()))
         val array = JSONArray()
         existing.take(20).forEach { entry ->
             array.put(JSONObject().put("uri", entry.uri.toString()).put("fileName", entry.fileName).put("createdAt", entry.createdAt))
