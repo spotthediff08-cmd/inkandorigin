@@ -336,7 +336,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
                 ) {
-                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Zoom Out-In", "Alternate", "Random", "Pan", "Ken Burns", "Cinematic").forEach { option ->
+                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Zoom Out-In", "Alternate", "Random", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic").forEach { option ->
                         DropdownMenuItem(
                             text = { Text(option) },
                             onClick = {
@@ -371,7 +371,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             Box {
                                 TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
                                 DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
-                                    listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Ken Burns", "Cinematic", "Random").forEach { motion ->
+                                    listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
                                         DropdownMenuItem(text = { Text(motion) }, onClick = {
                                             update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
                                             motionExpanded = false
