@@ -133,7 +133,7 @@ fun StudioApp() {
                 val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
                 if (imported.isNotEmpty()) {
                     val combined = (scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image", motion = globalMotion) }).sortedWith(compareBy { naturalKey(it.name) })
-                    val cues = SubtitleEngine.parse(srtText)
+                    val cues = SubtitleEngine.parse(timelineSrtText)
                     val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
                         val from = index * cues.size / combined.size
                         val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
@@ -230,7 +230,7 @@ fun StudioApp() {
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition)
-                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
+                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes, srtText)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
             }
@@ -878,7 +878,8 @@ private fun panelSignature(bitmap: Bitmap): String {
 fun StoryboardPage(
     modifier: Modifier,
     scenes: List<Scene>,
-    onScenesChange: (List<Scene>) -> Unit
+    onScenesChange: (List<Scene>) -> Unit,
+    timelineSrtText: String
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
