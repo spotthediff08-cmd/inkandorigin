@@ -9,7 +9,7 @@ import java.io.File
 
 data class ProjectSummary(val id: String, val name: String, val updatedAt: Long, val sceneCount: Int)
 data class LoadedProject(
-    val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String,
+    val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String, val wordSrtText: String,
     val resolution: String, val aspectRatio: String, val globalMotion: String,
     val subtitleFontSize: Int, val subtitleColor: String, val subtitlePosition: String,
     val subtitleOutline: Boolean, val subtitleBackground: Boolean, val frameRate: Int, val transition: String
@@ -27,7 +27,7 @@ object ProjectStore {
         }?.sortedByDescending { it.updatedAt } ?: emptyList()
 
     fun save(
-        context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String,
+        context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String, wordSrtText: String,
         resolution: String, aspectRatio: String, globalMotion: String, subtitleFontSize: Int,
         subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, frameRate: Int, transition: String
     ) {
@@ -50,7 +50,7 @@ object ProjectStore {
         }
         val json = JSONObject().put("id", id).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
             .put("scenes", sceneArray).put("audioPath", audioTarget?.absolutePath ?: JSONObject.NULL)
-            .put("srtText", srtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
+            .put("srtText", srtText).put("wordSrtText", wordSrtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
             .put("subtitleFontSize", subtitleFontSize).put("subtitleColor", subtitleColor).put("subtitlePosition", subtitlePosition)
              .put("subtitleOutline", subtitleOutline).put("subtitleBackground", subtitleBackground).put("frameRate", frameRate).put("transition", transition)
         File(folder, "project.json").writeText(json.toString())
@@ -69,7 +69,7 @@ object ProjectStore {
         val audioPath = json.optString("audioPath", "")
         return LoadedProject(id, json.optString("name", "Untitled Project"), scenes,
             if (audioPath.isNotBlank() && File(audioPath).isFile) Uri.fromFile(File(audioPath)) else null,
-            json.optString("srtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"),
+            json.optString("srtText", ""), json.optString("wordSrtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"),
             json.optInt("subtitleFontSize", 32), json.optString("subtitleColor", "White"), json.optString("subtitlePosition", "Bottom"),
             json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false), json.optInt("frameRate", 30), json.optString("transition", "Fade through black"))
     }
