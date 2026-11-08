@@ -133,24 +133,26 @@ fun StudioApp() {
                 val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
                 if (imported.isNotEmpty()) {
                     val combined = (scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image", motion = globalMotion) }).sortedWith(compareBy { naturalKey(it.name) })
-                    val cues = SubtitleEngine.parse(srtText)
-                    val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
-                        val from = index * cues.size / combined.size
-                        val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
-                        val seconds = cues.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f
-                        scene.copy(duration = seconds.coerceAtLeast(0.5f))
-                    }
+                    val timed = applyTimelineSrt(combined, srtText)
                     updateScenes(timed)
-                    status = imported.size.toString() + " images imported from folder"
+                    val cueCount = SubtitleEngine.parse(srtText).size
+                    status = if (cueCount > 0 && cueCount != combined.size) {
+                        "${imported.size} images imported • SRT has $cueCount cues for ${combined.size} images; matched in order"
+                    } else "${imported.size} images imported from folder"
                 } else status = "No images found in selected folder"
             }
         }
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
+            uris.forEach { uri -> runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
             val importedScenes = uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene", motion = globalMotion) }
-            updateScenes((scenes + importedScenes).sortedWith(compareBy { naturalKey(it.name) }))
-            status = "${importedScenes.size} images imported"
+            val combined = (scenes + importedScenes).sortedWith(compareBy { naturalKey(it.name) })
+            updateScenes(applyTimelineSrt(combined, srtText))
+            val cueCount = SubtitleEngine.parse(srtText).size
+            status = if (cueCount > 0 && cueCount != combined.size) {
+                "${importedScenes.size} images imported • SRT has $cueCount cues for ${combined.size} images; matched in order"
+            } else "${importedScenes.size} images imported"
         }
     }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -171,19 +173,14 @@ fun StudioApp() {
                     srtText = loadedText
                     val parsed = SubtitleEngine.parse(loadedText)
                     if (scenes.isNotEmpty() && parsed.isNotEmpty()) {
-                        val mapped = scenes.mapIndexed { index, scene ->
-                            val from = index * parsed.size / scenes.size
-                            val until = ((index + 1) * parsed.size / scenes.size).coerceAtLeast(from + 1).coerceAtMost(parsed.size)
-                            val duration = if (from < parsed.size) parsed.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f else scene.duration
-                            scene.copy(duration = duration.coerceAtLeast(0.5f))
-                        }
-                        updateScenes(mapped)
+                        updateScenes(applyTimelineSrt(scenes, loadedText))
                     }
-                    val cueCount = Regex("""(?m)^\s*\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->""").findAll(loadedText).count()
-                    status = if (cueCount > 0) {
-                        "SRT loaded • $cueCount subtitle cues"
+                    status = if (parsed.isNotEmpty()) {
+                        if (scenes.isNotEmpty() && parsed.size != scenes.size) {
+                            "Timeline SRT loaded • ${parsed.size} cues for ${scenes.size} images; matched in order"
+                        } else "Timeline SRT loaded • ${parsed.size} image timings matched"
                     } else {
-                        "Subtitle file loaded • no standard SRT timestamps detected"
+                        "SRT loaded • no standard timestamps detected"
                     }
                 } catch (e: Exception) {
                     status = "SRT import failed: ${e.message ?: "Unknown error"}"
@@ -810,6 +807,18 @@ fun collectImageDocuments(folder: DocumentFile): List<DocumentFile> {
     }
 }
 
+fun applyTimelineSrt(scenes: List<Scene>, srtText: String): List<Scene> {
+    val cues = SubtitleEngine.parse(srtText)
+    if (scenes.isEmpty() || cues.isEmpty()) return scenes
+    return scenes.mapIndexed { index, scene ->
+        val cue = cues.getOrNull(index) ?: return@mapIndexed scene
+        val nextStart = cues.getOrNull(index + 1)?.startMs
+        val end = nextStart?.takeIf { it > cue.startMs } ?: cue.endMs
+        val durationMs = (end - cue.startMs).coerceAtLeast(100L)
+        scene.copy(duration = durationMs / 1000f)
+    }
+}
+
 fun naturalKey(value: String): String = value.lowercase().replace(Regex("\\d+")) { match ->
     match.value.padStart(12, '0')
 }
@@ -900,14 +909,12 @@ fun StoryboardPage(
                 if (imported.isNotEmpty()) {
                     val additions = imported.map { Scene(it.uri, it.name ?: "Image") }
                     val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
-                    val cues = SubtitleEngine.parse(timelineSrtText)
-                    val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
-                        val from = index * cues.size / combined.size
-                        val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
-                        scene.copy(duration = (cues.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f).coerceAtLeast(0.5f))
-                    }
+                    val timed = applyTimelineSrt(combined, timelineSrtText)
                     onScenesChange(timed)
-                    status = "${imported.size} storyboard images added to scene timeline"
+                    val cueCount = SubtitleEngine.parse(timelineSrtText).size
+                    status = if (cueCount > 0 && cueCount != combined.size) {
+                        "${imported.size} storyboard images added • SRT has $cueCount cues for ${combined.size} images; matched in order"
+                    } else "${imported.size} storyboard images added to scene timeline"
                 } else status = "No images found in selected folder"
             }
         }
