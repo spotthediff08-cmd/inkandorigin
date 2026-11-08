@@ -12,7 +12,7 @@ data class LoadedProject(
     val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String,
     val resolution: String, val aspectRatio: String, val globalMotion: String,
     val subtitleFontSize: Int, val subtitleColor: String, val subtitlePosition: String,
-    val subtitleOutline: Boolean, val subtitleBackground: Boolean, val frameRate: Int
+    val subtitleOutline: Boolean, val subtitleBackground: Boolean, val frameRate: Int, val transition: String
 )
 
 object ProjectStore {
@@ -29,7 +29,7 @@ object ProjectStore {
     fun save(
         context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String,
         resolution: String, aspectRatio: String, globalMotion: String, subtitleFontSize: Int,
-        subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, frameRate: Int
+        subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, frameRate: Int, transition: String
     ) {
         val folder = File(root(context), id).apply { mkdirs() }
         val assets = File(folder, "assets").apply { mkdirs() }
@@ -52,7 +52,7 @@ object ProjectStore {
             .put("scenes", sceneArray).put("audioPath", audioTarget?.absolutePath ?: JSONObject.NULL)
             .put("srtText", srtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
             .put("subtitleFontSize", subtitleFontSize).put("subtitleColor", subtitleColor).put("subtitlePosition", subtitlePosition)
-             .put("subtitleOutline", subtitleOutline).put("subtitleBackground", subtitleBackground).put("frameRate", frameRate)
+             .put("subtitleOutline", subtitleOutline).put("subtitleBackground", subtitleBackground).put("frameRate", frameRate).put("transition", transition)
         File(folder, "project.json").writeText(json.toString())
     }
 
@@ -71,7 +71,7 @@ object ProjectStore {
             if (audioPath.isNotBlank() && File(audioPath).isFile) Uri.fromFile(File(audioPath)) else null,
             json.optString("srtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"),
             json.optInt("subtitleFontSize", 32), json.optString("subtitleColor", "White"), json.optString("subtitlePosition", "Bottom"),
-            json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false), json.optInt("frameRate", 30))
+            json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false), json.optInt("frameRate", 30), json.optString("transition", "Fade through black"))
     }
 
     fun duplicate(context: Context, id: String): String {
