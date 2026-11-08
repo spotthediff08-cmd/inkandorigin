@@ -13,7 +13,7 @@ An offline-first Android image-to-video studio. Projects and imported assets are
 - Automatically save projects locally; reopen, duplicate, rename by editing the project name, or delete projects.
 - Export MP4 using H.264 video and AAC audio, with SRT subtitles burned into the video.
 - Choose 16:9, 9:16, or 1:1; 720p, 1080p, or 4K; 24, 30, or 60 fps; and None or Fade through black scene transitions.
-- Save completed exports to the device's Movies/Animation Studio folder and keep a local export history. Export progress is shown while rendering, with a cancel action that removes the temporary output.
+- Save completed exports to the device's Movies/Animation Studio folder using the project name, and keep a local export history. Export progress is shown while rendering, with a cancel action that removes the temporary output.
 
 ## Export notes
 
