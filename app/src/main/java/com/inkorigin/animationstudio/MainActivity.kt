@@ -348,8 +348,10 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                     player.setOnPreparedListener { prepared ->
                         previewAudioReady = true
                         if (latestPreviewPlaying) runCatching {
-                            if (prepared.currentPosition >= prepared.duration) prepared.seekTo(0)
-                            prepared.start()
+                            if (previewPositionMs < prepared.duration) {
+                                prepared.seekTo(previewPositionMs.toInt().coerceAtLeast(0))
+                                prepared.start()
+                            }
                         }
                     }
                     player.setOnCompletionListener { completed ->
@@ -375,8 +377,10 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         val player = previewPlayer
         if (previewPlaying && player != null && previewAudioReady) {
             runCatching {
-                if (player.currentPosition >= player.duration) player.seekTo(0)
-                if (!player.isPlaying && player.currentPosition < player.duration) player.start()
+                if (previewPositionMs < player.duration) {
+                    player.seekTo(previewPositionMs.toInt().coerceAtLeast(0))
+                    if (!player.isPlaying) player.start()
+                }
             }
         } else if (!previewPlaying) {
             runCatching { if (player?.isPlaying == true) player.pause() }
