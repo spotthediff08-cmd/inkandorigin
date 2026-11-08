@@ -50,7 +50,7 @@ data class ExportSettings(
 @UnstableApi
 object VideoExportEngine {
     @Volatile private var activeTransformer: Transformer? = null
-    @Volatile private var cancelRequested: Boolean = false
+    @Volatile private var activeOutput: File? = null
 
     fun progressPercent(): Int? {
         val current = activeTransformer ?: return null
@@ -60,9 +60,15 @@ object VideoExportEngine {
         }.getOrNull()
     }
 
-    fun cancel() {
-        cancelRequested = true
-        runCatching { activeTransformer?.cancel() }
+    fun cancel(): Boolean {
+        val current = activeTransformer ?: return false
+        return runCatching {
+            current.cancel()
+            activeTransformer = null
+            activeOutput?.delete()
+            activeOutput = null
+            true
+        }.getOrDefault(false)
     }
 
     fun export(
@@ -145,7 +151,7 @@ object VideoExportEngine {
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                     activeTransformer = null
-                    cancelRequested = false
+                    activeOutput = null
                     Thread {
                         runCatching { publishToGallery(context, output) }
                             .onSuccess { uri -> output.delete(); Handler(Looper.getMainLooper()).post { onCompleted(uri) } }
@@ -154,24 +160,23 @@ object VideoExportEngine {
                 }
 
                 override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                    val wasCancelled = cancelRequested
                     activeTransformer = null
-                    cancelRequested = false
+                    activeOutput = null
                     output.delete()
                     Handler(Looper.getMainLooper()).post {
-                        onError(if (wasCancelled) "Export cancelled" else exportException.message ?: "Video export failed on this device.")
+                        onError(exportException.message ?: "Video export failed on this device.")
                     }
                 }
             })
             .build()
         activeTransformer = transformer
-        cancelRequested = false
+        activeOutput = output
         runCatching {
             onStarted()
             transformer.start(composition, output.absolutePath)
         }.onFailure {
             activeTransformer = null
-            cancelRequested = false
+            activeOutput = null
             output.delete()
             onError(it.message ?: "Could not start video export.")
         }
