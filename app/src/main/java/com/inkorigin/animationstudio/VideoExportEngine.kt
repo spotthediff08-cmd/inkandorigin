@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -72,7 +73,26 @@ object VideoExportEngine {
         val videoSequence = EditedMediaItemSequence.withVideoFrom(videoItems)
         val sequences = mutableListOf(videoSequence)
         if (audioUri != null) {
-            val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build()
+            val totalVideoDurationMs = scenes.sumOf { (it.duration.coerceIn(0.5f, 300f) * 1000).toLong() }
+            val audioDurationMs = runCatching {
+                MediaMetadataRetriever().use { retriever ->
+                    retriever.setDataSource(context, audioUri)
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+                }
+            }.getOrNull()
+            val audioItem = if (audioDurationMs != null && audioDurationMs > 0) {
+                val clippedDuration = min(audioDurationMs, totalVideoDurationMs)
+                val audioMediaItem = MediaItem.Builder().setUri(audioUri)
+                    .setClippingConfiguration(
+                        MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionMs(clippedDuration)
+                            .build()
+                    ).build()
+                EditedMediaItem.Builder(audioMediaItem).setDurationUs(clippedDuration * 1000L).build()
+            } else {
+                EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build()
+            }
             sequences += EditedMediaItemSequence.withAudioFrom(listOf(audioItem))
         }
         val videoEffects = mutableListOf<androidx.media3.common.Effect>()
