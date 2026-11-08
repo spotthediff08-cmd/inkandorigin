@@ -2,6 +2,7 @@ package com.inkorigin.animationstudio
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaPlayer
 import android.content.Intent
 import androidx.documentfile.provider.DocumentFile
 import androidx.compose.ui.platform.LocalContext
@@ -184,7 +185,7 @@ fun StudioApp() {
         ) { padding ->
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { folderPicker.launch(null) }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
-                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, srtText)
+                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, srtText, audio)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -306,7 +307,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
@@ -315,12 +316,77 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     val previewTotalMs = scenes.sumOf { (it.duration.coerceAtLeast(0.5f) * 1000).toLong() }.coerceAtLeast(1L)
     val previewCues = remember(srtText) { SubtitleEngine.parse(srtText) }
     val activePreviewCue = SubtitleEngine.activeCue(previewCues, previewPositionMs)
-    LaunchedEffect(previewPlaying) {
+    val context = LocalContext.current
+    val latestPreviewPlaying by rememberUpdatedState(previewPlaying)
+    var previewAudioReady by remember(audioUri, showTimelinePreview) { mutableStateOf(false) }
+    var previewPlayer by remember(audioUri, showTimelinePreview) { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(audioUri, showTimelinePreview) {
+        var ownedPlayer: MediaPlayer? = null
+        if (showTimelinePreview && audioUri != null) {
+            runCatching {
+                MediaPlayer().also { player ->
+                    ownedPlayer = player
+                    player.setOnPreparedListener { prepared ->
+                        previewAudioReady = true
+                        if (latestPreviewPlaying) runCatching {
+                            if (prepared.currentPosition >= prepared.duration) prepared.seekTo(0)
+                            prepared.start()
+                        }
+                    }
+                    player.setOnCompletionListener { completed ->
+                        previewPositionMs = completed.currentPosition.toLong().coerceAtMost(previewTotalMs)
+                    }
+                    player.setDataSource(context, audioUri)
+                    previewPlayer = player
+                    player.prepareAsync()
+                }
+            }.onFailure {
+                previewAudioReady = false
+                previewPlayer = null
+            }
+        }
+        onDispose {
+            runCatching { ownedPlayer?.let { if (it.isPlaying) it.pause(); it.release() } }
+            previewPlayer = null
+            previewAudioReady = false
+        }
+    }
+
+    LaunchedEffect(previewPlaying, previewAudioReady, showTimelinePreview) {
+        val player = previewPlayer
+        if (previewPlaying && player != null && previewAudioReady) {
+            runCatching {
+                if (player.currentPosition >= player.duration) player.seekTo(0)
+                if (!player.isPlaying && player.currentPosition < player.duration) player.start()
+            }
+        } else if (!previewPlaying) {
+            runCatching { if (player?.isPlaying == true) player.pause() }
+        }
         while (previewPlaying && previewPositionMs < previewTotalMs) {
             delay(50)
-            previewPositionMs = (previewPositionMs + 50).coerceAtMost(previewTotalMs)
+            val activePlayer = previewPlayer
+            if (audioUri != null && activePlayer != null && previewAudioReady) {
+                runCatching {
+                    if (activePlayer.isPlaying) {
+                        previewPositionMs = activePlayer.currentPosition.toLong().coerceAtMost(previewTotalMs)
+                    } else if (activePlayer.currentPosition >= activePlayer.duration) {
+                        previewPositionMs = (previewPositionMs + 50L).coerceAtMost(previewTotalMs)
+                    }
+                }
+            } else {
+                previewPositionMs = (previewPositionMs + 50L).coerceAtMost(previewTotalMs)
+            }
         }
         if (previewPositionMs >= previewTotalMs) previewPlaying = false
+    }
+
+    LaunchedEffect(previewPositionMs, previewAudioReady, previewPlaying) {
+        if (!previewPlaying && previewAudioReady) {
+            runCatching {
+                previewPlayer?.seekTo(previewPositionMs.coerceAtMost(previewPlayer?.duration?.toLong() ?: previewPositionMs).toInt())
+            }
+        }
     }
 
     LazyColumn(
@@ -479,16 +545,16 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         }
                     }
                     Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
-                    Slider(value = previewPositionMs.toFloat(), onValueChange = { previewPositionMs = it.toLong(); previewPlaying = false }, valueRange = 0f..previewTotalMs.toFloat())
+                    Slider(value = previewPositionMs.toFloat(), onValueChange = { previewPositionMs = it.toLong(); previewPlaying = false; runCatching { previewPlayer?.seekTo(previewPositionMs.coerceAtMost(previewPlayer?.duration?.toLong() ?: previewPositionMs).toInt()) } }, valueRange = 0f..previewTotalMs.toFloat())
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("%.1f".format(previewPositionMs / 1000f) + "s / " + "%.1f".format(previewTotalMs / 1000f) + "s", color = Muted, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { previewPositionMs = 0L; previewPlaying = false }) { Icon(Icons.Default.Replay, "Restart") }
-                        Button(onClick = { if (previewPositionMs >= previewTotalMs) previewPositionMs = 0L; previewPlaying = !previewPlaying }) {
+                        IconButton(onClick = { previewPositionMs = 0L; previewPlaying = false; runCatching { previewPlayer?.seekTo(0) } }) { Icon(Icons.Default.Replay, "Restart") }
+                        Button(onClick = { if (previewPositionMs >= previewTotalMs) { previewPositionMs = 0L; runCatching { previewPlayer?.seekTo(0) } }; previewPlaying = !previewPlaying }) {
                             Icon(if (previewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
                             Text(if (previewPlaying) "Pause" else "Play")
                         }
                     }
-                    Text("Visual preview only. Voiceover and SRT subtitles are included in the final MP4 export.", color = Muted, fontSize = 11.sp)
+                    Text(if (audioUri != null) "Voiceover audio plays with the visual timeline. SRT subtitles follow the preview position." else "No voiceover selected. Visual timeline and SRT subtitles are previewed without audio.", color = Muted, fontSize = 11.sp)
                 }
             }
         }
