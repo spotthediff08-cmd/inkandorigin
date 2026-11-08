@@ -61,10 +61,10 @@ object VideoExportEngine {
         }
         val widthHeight = outputSize(settings.resolution, settings.aspectRatio)
         val cues = SubtitleEngine.parse(srtText)
-        val videoItems = scenes.map { scene ->
+        val videoItems = scenes.mapIndexed { sceneIndex, scene ->
             val durationMs = (scene.duration.coerceIn(0.5f, 300f) * 1000).toLong()
             val mediaItem = MediaItem.Builder().setUri(scene.uri).setImageDurationMs(durationMs).build()
-            val motion = motionEffect(scene.motion, durationMs)
+            val motion = motionEffect(scene.motion, durationMs, sceneIndex)
             EditedMediaItem.Builder(mediaItem)
                 .setFrameRate(30)
                 .setEffects(Effects(emptyList(), listOf(motion)))
@@ -148,27 +148,35 @@ object VideoExportEngine {
         }
     }
 
-    private fun motionEffect(motion: String, durationMs: Long): MatrixTransformation =
-        MatrixTransformation { presentationTimeUs ->
+    private fun motionEffect(motion: String, durationMs: Long, sceneIndex: Int): MatrixTransformation {
+        val actualMotion = when (motion) {
+            "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[sceneIndex % 5]
+            "Alternate" -> if (sceneIndex % 2 == 0) "Zoom In" else "Zoom Out"
+            else -> motion
+        }
+        return MatrixTransformation { presentationTimeUs ->
             val progress = (presentationTimeUs / (durationMs * 1000f)).coerceIn(0f, 1f)
             val matrix = android.graphics.Matrix()
-            val scale = when (motion) {
+            val scale = when (actualMotion) {
                 "Zoom In", "Auto Zoom" -> 1f + 0.12f * progress
                 "Zoom Out" -> 1.12f - 0.12f * progress
                 "Zoom In-Out" -> 1f + 0.10f * sin(progress * Math.PI).toFloat()
                 "Zoom Out-In" -> 1.10f - 0.10f * sin(progress * Math.PI).toFloat()
-                "Cinematic", "Ken Burns" -> 1f + 0.09f * progress
+                "Cinematic", "Ken Burns", "Zoom+Pan" -> 1f + 0.09f * progress
                 else -> 1.04f
             }
             matrix.setScale(scale, scale, 0f, 0f)
-            when (motion) {
+            when (actualMotion) {
                 "Pan Left" -> matrix.postTranslate(0.16f - 0.32f * progress, 0f)
                 "Pan Right" -> matrix.postTranslate(-0.16f + 0.32f * progress, 0f)
-                "Ken Burns", "Cinematic" -> matrix.postTranslate(-0.08f + 0.16f * progress, 0.04f - 0.08f * progress)
+                "Pan Up" -> matrix.postTranslate(0f, 0.16f - 0.32f * progress)
+                "Pan Down" -> matrix.postTranslate(0f, -0.16f + 0.32f * progress)
+                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.08f + 0.16f * progress, 0.04f - 0.08f * progress)
                 else -> Unit
             }
             matrix
         }
+    }
 
     private fun publishToGallery(context: Context, source: File): Uri {
         val name = "AnimationStudio_${System.currentTimeMillis()}.mp4"
