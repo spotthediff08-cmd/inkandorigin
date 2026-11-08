@@ -392,7 +392,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 runCatching {
                     if (activePlayer.isPlaying) {
                         previewPositionMs = activePlayer.currentPosition.toLong().coerceAtMost(previewTotalMs)
-                    } else if (activePlayer.currentPosition >= activePlayer.duration) {
+                    } else if (previewPositionMs >= activePlayer.duration.toLong() || activePlayer.currentPosition >= activePlayer.duration) {
                         previewPositionMs = (previewPositionMs + 50L).coerceAtMost(previewTotalMs)
                     }
                 }
