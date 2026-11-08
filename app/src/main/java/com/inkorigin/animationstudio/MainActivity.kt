@@ -665,8 +665,15 @@ fun SubtitlePage(
     position: String, setPosition: (String) -> Unit, outline: Boolean, setOutline: (Boolean) -> Unit,
     background: Boolean, setBackground: (Boolean) -> Unit
 ) {
-    val cues = remember(text) { SubtitleEngine.parse(text) }
+    var cues by remember(text) { mutableStateOf(emptyList<SubtitleCue>()) }
     var showCueList by remember { mutableStateOf(true) }
+    var showEditor by remember { mutableStateOf(false) }
+    var parsing by remember(text) { mutableStateOf(text.isNotBlank()) }
+    LaunchedEffect(text) {
+        parsing = text.isNotBlank()
+        cues = withContext(Dispatchers.IO) { SubtitleEngine.parse(text) }
+        parsing = false
+    }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Subtitles", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(fileName, color = Muted)
@@ -699,12 +706,12 @@ fun SubtitlePage(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("SRT CUES (" + cues.size + ")", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(if (parsing) "READING SRT…" else "SRT CUES (" + cues.size + ")", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = { showCueList = !showCueList }) { Text(if (showCueList) "Hide" else "Show") }
         }
-        if (showCueList) {
+        if (showCueList && !parsing) {
             if (cues.isEmpty()) Text("No valid timestamped cues found yet.", color = Muted)
-            cues.take(200).forEach { cue ->
+            cues.take(100).forEach { cue ->
                 Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
                         Text(SubtitleEngine.formatTime(cue.startMs) + " → " + SubtitleEngine.formatTime(cue.endMs), color = Accent, fontSize = 11.sp)
@@ -712,10 +719,14 @@ fun SubtitlePage(
                     }
                 }
             }
-            if (cues.size > 200) Text("Showing first 200 of " + cues.size + " cues.", color = Muted, fontSize = 11.sp)
+            if (cues.size > 100) Text("Showing first 100 of " + cues.size + " cues to keep the screen responsive.", color = Muted, fontSize = 11.sp)
         }
-        Text("SRT CONTENT / EDITOR", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        OutlinedTextField(value = text, onValueChange = setText, modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp), placeholder = { Text("Imported subtitle text will appear here…") })
+        TextButton(onClick = { showEditor = !showEditor }) {
+            Text(if (showEditor) "Hide SRT text editor" else "Show SRT text editor")
+        }
+        if (showEditor) {
+            OutlinedTextField(value = text, onValueChange = setText, modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp), placeholder = { Text("Imported subtitle text will appear here…") })
+        }
     }
 }
 
@@ -894,6 +905,7 @@ fun StoryboardPage(
     val scope = rememberCoroutineScope()
 
     var storyboardUri by remember { mutableStateOf<Uri?>(null) }
+    var folderImages by remember { mutableStateOf(emptyList<DocumentFile>()) }
     var gridSize by remember { mutableIntStateOf(3) }
     var blankPanels by remember { mutableStateOf(setOf<Int>()) }
     var status by remember { mutableStateOf("Choose a storyboard image") }
@@ -905,17 +917,20 @@ fun StoryboardPage(
         if (folderUri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             scope.launch {
-                val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
+                val imported = withContext(Dispatchers.IO) {
+                    DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList()
+                }.sortedBy { naturalKey(it.name ?: "Image") }
+                folderImages = imported
+                blankPanels = emptySet()
+                selectedPanels.clear()
                 if (imported.isNotEmpty()) {
-                    val additions = imported.map { Scene(it.uri, it.name ?: "Image") }
-                    val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
-                    val timed = applyTimelineSrt(combined, timelineSrtText)
-                    onScenesChange(timed)
-                    val cueCount = SubtitleEngine.parse(timelineSrtText).size
-                    status = if (cueCount > 0 && cueCount != combined.size) {
-                        "${imported.size} storyboard images added • SRT has $cueCount cues for ${combined.size} images; matched in order"
-                    } else "${imported.size} storyboard images added to scene timeline"
-                } else status = "No images found in selected folder"
+                    // Open the first image immediately so the grid selector and Split button appear.
+                    storyboardUri = imported.first().uri
+                    status = "${imported.size} images found. Choose a contact sheet below, then split it."
+                } else {
+                    storyboardUri = null
+                    status = "No images found in selected folder"
+                }
             }
         }
     }
@@ -986,7 +1001,36 @@ fun StoryboardPage(
             onClick = { picker.launch("image/*") },
             modifier = Modifier.fillMaxWidth(),
             enabled = !processing
-        ) { Text("Split a Storyboard Contact Sheet") }
+        ) { Text("Choose One Contact Sheet") }
+
+        if (folderImages.isNotEmpty()) {
+            Text("IMAGES IN SELECTED FOLDER (${folderImages.size})", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            folderImages.take(100).forEachIndexed { index, item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(item.name ?: "Image ${index + 1}", modifier = Modifier.weight(1f), maxLines = 2, color = Color.White, fontSize = 12.sp)
+                    TextButton(onClick = {
+                        storyboardUri = item.uri
+                        blankPanels = emptySet()
+                        selectedPanels.clear()
+                        status = "Checking ${item.name ?: "image"}..."
+                    }, enabled = !processing) { Text(if (storyboardUri == item.uri) "Selected" else "Split this") }
+                }
+            }
+            if (folderImages.size > 100) Text("Showing first 100 files.", color = Muted, fontSize = 11.sp)
+            OutlinedButton(
+                onClick = {
+                    val additions = folderImages.map { Scene(it.uri, it.name ?: "Image") }
+                    val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
+                    onScenesChange(applyTimelineSrt(combined, timelineSrtText))
+                    status = "${additions.size} folder images added directly to Scenes."
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !processing
+            ) { Text("Add All Folder Images as Scenes") }
+        }
 
         Text("Choose Grid Size", fontWeight = FontWeight.Bold)
 
