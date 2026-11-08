@@ -68,6 +68,11 @@ fun StudioApp() {
     var resolution by remember { mutableStateOf("1080p") }
     var globalMotion by remember { mutableStateOf("Cinematic") }
     var aspectRatio by remember { mutableStateOf("16:9") }
+    var subtitleFontSize by remember { mutableIntStateOf(32) }
+    var subtitleColor by remember { mutableStateOf("White") }
+    var subtitlePosition by remember { mutableStateOf("Bottom") }
+    var subtitleOutline by remember { mutableStateOf(true) }
+    var subtitleBackground by remember { mutableStateOf(false) }
     var projectId by remember { mutableStateOf("project_" + System.currentTimeMillis()) }
     var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
     var showProjects by remember { mutableStateOf(false) }
@@ -141,7 +146,7 @@ fun StudioApp() {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, { scenes = it }, { imagePicker.launch("image/*") }, globalMotion, { globalMotion = it })
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes) { scenes = it }
-            "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") })
+            "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, status)
             }
         }
@@ -371,14 +376,62 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
 }
 
 @Composable
-fun SubtitlePage(modifier: Modifier, fileName: String, text: String, setText:(String)->Unit, import:()->Unit) {
-    Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+fun SubtitlePage(
+    modifier: Modifier, fileName: String, text: String, setText: (String) -> Unit, import: () -> Unit,
+    fontSize: Int, setFontSize: (Int) -> Unit, color: String, setColor: (String) -> Unit,
+    position: String, setPosition: (String) -> Unit, outline: Boolean, setOutline: (Boolean) -> Unit,
+    background: Boolean, setBackground: (Boolean) -> Unit
+) {
+    val cues = remember(text) { SubtitleEngine.parse(text) }
+    var showCueList by remember { mutableStateOf(true) }
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Subtitles", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(fileName, color = Muted)
         Button(onClick = import, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import SRT file") }
+        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("SUBTITLE STYLE", fontWeight = FontWeight.Bold)
+                Text("Font size: " + fontSize + " px", color = Muted)
+                Slider(value = fontSize.toFloat(), onValueChange = { setFontSize(it.toInt()) }, valueRange = 18f..64f, steps = 22)
+                Text("Text color", color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("White", "Yellow", "Cyan").forEach { option -> FilterChip(selected = color == option, onClick = { setColor(option) }, label = { Text(option) }) }
+                }
+                Text("Position", color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Top", "Center", "Bottom").forEach { option -> FilterChip(selected = position == option, onClick = { setPosition(option) }, label = { Text(option) }) }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = outline, onCheckedChange = setOutline)
+                    Text("Text outline")
+                    Spacer(Modifier.width(12.dp))
+                    Checkbox(checked = background, onCheckedChange = setBackground)
+                    Text("Background box")
+                }
+                Surface(color = if (background) Color(0xCC000000) else Color.Transparent, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(cues.firstOrNull()?.text ?: "Your subtitle preview appears here", color = when(color) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }, fontSize = fontSize.coerceIn(12, 48).sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
+                }
+                Text("Preview settings are saved with the project. Outline and final burn-in are applied during video rendering.", color = Muted, fontSize = 11.sp)
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("SRT CUES (" + cues.size + ")", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = { showCueList = !showCueList }) { Text(if (showCueList) "Hide" else "Show") }
+        }
+        if (showCueList) {
+            if (cues.isEmpty()) Text("No valid timestamped cues found yet.", color = Muted)
+            cues.take(200).forEach { cue ->
+                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                    Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                        Text(SubtitleEngine.formatTime(cue.startMs) + " → " + SubtitleEngine.formatTime(cue.endMs), color = Accent, fontSize = 11.sp)
+                        Text(cue.text, fontSize = 14.sp)
+                    }
+                }
+            }
+            if (cues.size > 200) Text("Showing first 200 of " + cues.size + " cues.", color = Muted, fontSize = 11.sp)
+        }
         Text("SRT CONTENT / EDITOR", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        OutlinedTextField(value = text, onValueChange = setText, modifier = Modifier.fillMaxWidth().weight(1f), placeholder = { Text("Imported subtitle text will appear here…") })
-        Text("Subtitle styling controls will be added in the next build.", color = Muted, fontSize = 12.sp)
+        OutlinedTextField(value = text, onValueChange = setText, modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp), placeholder = { Text("Imported subtitle text will appear here…") })
     }
 }
 
