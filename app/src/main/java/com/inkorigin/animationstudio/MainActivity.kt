@@ -133,7 +133,7 @@ fun StudioApp() {
                 val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
                 if (imported.isNotEmpty()) {
                     val combined = (scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image", motion = globalMotion) }).sortedWith(compareBy { naturalKey(it.name) })
-                    val cues = SubtitleEngine.parse(timelineSrtText)
+                    val cues = SubtitleEngine.parse(srtText)
                     val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
                         val from = index * cues.size / combined.size
                         val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
@@ -900,7 +900,7 @@ fun StoryboardPage(
                 if (imported.isNotEmpty()) {
                     val additions = imported.map { Scene(it.uri, it.name ?: "Image") }
                     val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
-                    val cues = SubtitleEngine.parse(srtText)
+                    val cues = SubtitleEngine.parse(timelineSrtText)
                     val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
                         val from = index * cues.size / combined.size
                         val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
