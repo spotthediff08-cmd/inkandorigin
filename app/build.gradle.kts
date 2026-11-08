@@ -30,8 +30,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
-    implementation("androidx.media3:media3-transformer:1.10.1")
-    implementation("androidx.media3:media3-effect:1.10.1")
-    implementation("androidx.media3:media3-common:1.10.1")
+    implementation("androidx.media3:media3-transformer:1.9.4")
+    implementation("androidx.media3:media3-effect:1.9.4")
+    implementation("androidx.media3:media3-common:1.9.4")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
