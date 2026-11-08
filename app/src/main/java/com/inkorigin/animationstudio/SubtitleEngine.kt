@@ -6,7 +6,7 @@ object SubtitleEngine {
     private val timestamp = Regex("""(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})""")
     fun parse(source: String): List<SubtitleCue> {
         val normalized = source.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r', '\n')
-        val blocks = normalized.trim().split(Regex("\n\s*\n+"))
+        val blocks = normalized.trim().split(Regex("""\n\s*\n+"""))
         val cues = mutableListOf<SubtitleCue>()
         blocks.forEach { block ->
             val lines = block.lines()
