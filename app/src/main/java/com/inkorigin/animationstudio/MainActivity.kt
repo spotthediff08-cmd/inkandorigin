@@ -196,7 +196,7 @@ fun StudioApp() {
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             scope.launch {
-                runCatching { withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText().removePrefix("\\uFEFF") } ?: error("Cannot read SRT") } }
+                runCatching { withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText().removePrefix("\uFEFF") } ?: error("Cannot read SRT") } }
                     .onSuccess { wordSrtText = it; wordSrtName = uri.lastPathSegment ?: "Word-level SRT"; status = "Word-level SRT loaded" }
                     .onFailure { status = "Subtitle SRT import failed: ${it.message}" }
             }
@@ -898,7 +898,14 @@ fun StoryboardPage(
                 val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
                 if (imported.isNotEmpty()) {
                     val additions = imported.map { Scene(it.uri, it.name ?: "Image") }
-                    onScenesChange((scenes + additions).sortedWith(compareBy { naturalKey(it.name) }))
+                    val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
+                    val cues = SubtitleEngine.parse(srtText)
+                    val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
+                        val from = index * cues.size / combined.size
+                        val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
+                        scene.copy(duration = (cues.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f).coerceAtLeast(0.5f))
+                    }
+                    onScenesChange(timed)
                     status = "${imported.size} storyboard images added to scene timeline"
                 } else status = "No images found in selected folder"
             }
