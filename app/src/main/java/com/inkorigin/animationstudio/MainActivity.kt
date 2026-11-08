@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -66,6 +67,19 @@ fun StudioApp() {
     var status by remember { mutableStateOf("Ready to create") }
     var resolution by remember { mutableStateOf("1080p") }
     var globalMotion by remember { mutableStateOf("Cinematic") }
+    var aspectRatio by remember { mutableStateOf("16:9") }
+    var projectId by remember { mutableStateOf("project_" + System.currentTimeMillis()) }
+    var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
+    var showProjects by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) } }
+    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion) {
+        delay(900)
+        runCatching {
+            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion) }
+            savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+        }.onFailure { status = "Autosave error: " + (it.message ?: "Unknown error") }
+    }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
             scenes = uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene") }
@@ -124,18 +138,18 @@ fun StudioApp() {
             }
         ) { padding ->
             when(tab) {
-                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" })
+                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, { scenes = it }, { imagePicker.launch("image/*") }, globalMotion, { globalMotion = it })
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes) { scenes = it }
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") })
-                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, status)
+                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, status)
             }
         }
     }
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addImages:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addImages:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -150,6 +164,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                 }
             }
         }
+        item { OutlinedButton(onClick = openProjects, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Open / Manage Saved Projects") } }
         item { SectionTitle("IMPORT YOUR ASSETS") }
         item { ActionCard("Scene images", "$count images selected", Icons.Default.Image, addImages) }
         item { ActionCard("Voiceover", if(hasAudio) "Audio file selected" else "Choose narration audio", Icons.Default.Mic, addAudio) }
@@ -278,15 +293,17 @@ fun SubtitlePage(modifier: Modifier, fileName: String, text: String, setText:(St
 }
 
 @Composable
-fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, status:String) {
+fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, status:String) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Export video", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("PROJECT CHECK", fontWeight = FontWeight.Bold)
-                Text("Scene images: $count\nVoiceover: ${if(audio) "Added" else "Missing"}\nResolution: $resolution", color = Muted, lineHeight = 24.sp)
+                Text("Scene images: $count\nVoiceover: ${if(audio) "Added" else "Missing"}\nAspect ratio: $aspectRatio\nResolution: $resolution", color = Muted, lineHeight = 24.sp)
             }
         }
+        Text("ASPECT RATIO", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("16:9", "9:16", "1:1").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) } }
         Text("OUTPUT RESOLUTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("720p", "1080p", "4K").forEach { value ->
