@@ -219,6 +219,7 @@ fun StudioApp() {
                                                 sceneRedo = emptyList()
                                                 audio = loaded.audio
                                                 srtText = loaded.srtText
+                                                srtName = if (loaded.srtText.isNotBlank()) "Saved subtitles" else "No subtitle file selected"
                                                 resolution = loaded.resolution
                                                 aspectRatio = loaded.aspectRatio
                                                 globalMotion = loaded.globalMotion
