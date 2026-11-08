@@ -64,7 +64,6 @@ data class Scene(val uri: Uri, val name: String, val duration: Float = 4f, val m
 fun StudioApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val timelineSrtCueCount = remember(srtText) { SubtitleEngine.parse(srtText).size }
     var tab by remember { mutableStateOf("Home") }
     var scenes by remember { mutableStateOf(listOf<Scene>()) }
     var sceneUndo by remember { mutableStateOf(emptyList<List<Scene>>()) }
@@ -86,6 +85,7 @@ fun StudioApp() {
     }
     var audio by remember { mutableStateOf<Uri?>(null) }
     var srtText by remember { mutableStateOf("") }
+    val timelineSrtCueCount = remember(srtText) { SubtitleEngine.parse(srtText).size }
     var srtName by remember { mutableStateOf("No timeline SRT selected") }
     var wordSrtText by remember { mutableStateOf("") }
     var wordSrtName by remember { mutableStateOf("No word-level SRT selected") }
