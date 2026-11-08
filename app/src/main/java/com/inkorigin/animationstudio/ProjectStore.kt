@@ -7,7 +7,12 @@ import org.json.JSONObject
 import java.io.File
 
 data class ProjectSummary(val id: String, val name: String, val updatedAt: Long, val sceneCount: Int)
-data class LoadedProject(val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String, val resolution: String, val aspectRatio: String, val globalMotion: String)
+data class LoadedProject(
+    val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String,
+    val resolution: String, val aspectRatio: String, val globalMotion: String,
+    val subtitleFontSize: Int, val subtitleColor: String, val subtitlePosition: String,
+    val subtitleOutline: Boolean, val subtitleBackground: Boolean
+)
 
 object ProjectStore {
     private fun root(context: Context) = File(context.filesDir, "projects").apply { mkdirs() }
@@ -20,7 +25,11 @@ object ProjectStore {
             }.getOrNull()
         }?.sortedByDescending { it.updatedAt } ?: emptyList()
 
-    fun save(context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String, resolution: String, aspectRatio: String, globalMotion: String) {
+    fun save(
+        context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String,
+        resolution: String, aspectRatio: String, globalMotion: String, subtitleFontSize: Int,
+        subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean
+    ) {
         val folder = File(root(context), id).apply { mkdirs() }
         val assets = File(folder, "assets").apply { mkdirs() }
         val sceneArray = JSONArray()
@@ -33,6 +42,8 @@ object ProjectStore {
         val json = JSONObject().put("id", id).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
             .put("scenes", sceneArray).put("audioPath", audioTarget?.absolutePath ?: JSONObject.NULL)
             .put("srtText", srtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
+            .put("subtitleFontSize", subtitleFontSize).put("subtitleColor", subtitleColor).put("subtitlePosition", subtitlePosition)
+            .put("subtitleOutline", subtitleOutline).put("subtitleBackground", subtitleBackground)
         File(folder, "project.json").writeText(json.toString())
     }
 
@@ -49,7 +60,9 @@ object ProjectStore {
         val audioPath = json.optString("audioPath", "")
         return LoadedProject(id, json.optString("name", "Untitled Project"), scenes,
             if (audioPath.isNotBlank() && File(audioPath).isFile) Uri.fromFile(File(audioPath)) else null,
-            json.optString("srtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"))
+            json.optString("srtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"),
+            json.optInt("subtitleFontSize", 32), json.optString("subtitleColor", "White"), json.optString("subtitlePosition", "Bottom"),
+            json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false))
     }
 
     fun duplicate(context: Context, id: String): String {
