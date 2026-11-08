@@ -894,6 +894,13 @@ private fun panelSignature(bitmap: Bitmap): String {
     return result.toString()
 }
 
+private data class BatchStoryboardResult(
+    val added: List<Scene>,
+    val blankSkipped: Int,
+    val duplicateSkipped: Int,
+    val failed: Int
+)
+
 @Composable
 fun StoryboardPage(
     modifier: Modifier,
@@ -906,6 +913,7 @@ fun StoryboardPage(
 
     var storyboardUri by remember { mutableStateOf<Uri?>(null) }
     var folderImages by remember { mutableStateOf(emptyList<DocumentFile>()) }
+    var selectedFolderUris by remember { mutableStateOf<Set<Uri>>(emptySet()) }
     var gridSize by remember { mutableIntStateOf(3) }
     var blankPanels by remember { mutableStateOf(setOf<Int>()) }
     var status by remember { mutableStateOf("Choose a storyboard image") }
@@ -921,6 +929,7 @@ fun StoryboardPage(
                     DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList()
                 }.sortedBy { naturalKey(it.name ?: "Image") }
                 folderImages = imported
+                selectedFolderUris = imported.map { it.uri }.toSet()
                 blankPanels = emptySet()
                 selectedPanels.clear()
                 if (imported.isNotEmpty()) {
@@ -1005,21 +1014,122 @@ fun StoryboardPage(
 
         if (folderImages.isNotEmpty()) {
             Text("IMAGES IN SELECTED FOLDER (${folderImages.size})", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { selectedFolderUris = folderImages.map { it.uri }.toSet() },
+                    modifier = Modifier.weight(1f),
+                    enabled = !processing
+                ) { Text("Select All") }
+                OutlinedButton(
+                    onClick = { selectedFolderUris = emptySet() },
+                    modifier = Modifier.weight(1f),
+                    enabled = !processing
+                ) { Text("Deselect All") }
+            }
+            Text("${selectedFolderUris.size} of ${folderImages.size} storyboards selected", color = Muted, fontSize = 11.sp)
             folderImages.take(100).forEachIndexed { index, item ->
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Checkbox(
+                        checked = item.uri in selectedFolderUris,
+                        onCheckedChange = { checked ->
+                            selectedFolderUris = if (checked) selectedFolderUris + item.uri else selectedFolderUris - item.uri
+                        },
+                        enabled = !processing
+                    )
                     Text(item.name ?: "Image ${index + 1}", modifier = Modifier.weight(1f), maxLines = 2, color = Color.White, fontSize = 12.sp)
                     TextButton(onClick = {
                         storyboardUri = item.uri
                         blankPanels = emptySet()
                         selectedPanels.clear()
                         status = "Checking ${item.name ?: "image"}..."
-                    }, enabled = !processing) { Text(if (storyboardUri == item.uri) "Selected" else "Split this") }
+                    }, enabled = !processing) { Text(if (storyboardUri == item.uri) "Preview" else "Preview") }
                 }
             }
-            if (folderImages.size > 100) Text("Showing first 100 files.", color = Muted, fontSize = 11.sp)
+            if (folderImages.size > 100) Text("Showing first 100 files in the list. Select All includes every image.", color = Muted, fontSize = 11.sp)
+            Button(
+                onClick = {
+                    val targets = folderImages.filter { it.uri in selectedFolderUris }
+                    scope.launch {
+                        processing = true
+                        status = "Preparing ${targets.size} storyboards for batch split..."
+                        try {
+                            val result = withContext(Dispatchers.IO) {
+                                val outputFolder = File(context.filesDir, "storyboard/batch_${System.currentTimeMillis()}")
+                                if (!outputFolder.mkdirs() && !outputFolder.isDirectory) {
+                                    throw Exception("Cannot create output folder")
+                                }
+                                val added = mutableListOf<Scene>()
+                                var blankSkipped = 0
+                                var duplicateSkipped = 0
+                                var failed = 0
+                                targets.forEachIndexed { imageIndex, document ->
+                                    try {
+                                        val input = context.contentResolver.openInputStream(document.uri)
+                                            ?: throw Exception("Cannot open ${document.name}")
+                                        val bitmap = input.use { BitmapFactory.decodeStream(it) }
+                                            ?: throw Exception("Invalid image: ${document.name}")
+                                        try {
+                                            if (bitmap.width < gridSize || bitmap.height < gridSize) {
+                                                throw Exception("Image too small: ${document.name}")
+                                            }
+                                            val blanks = detectBlankPanels(bitmap, gridSize)
+                                            blankSkipped += blanks.size
+                                            val signatures = mutableSetOf<String>()
+                                            val baseName = (document.name ?: "Storyboard_${imageIndex + 1}")
+                                                .substringBeforeLast('.')
+                                                .replace(Regex("[^A-Za-z0-9_-]"), "_")
+                                                .take(40)
+                                            for (panelIndex in 0 until gridSize * gridSize) {
+                                                if (panelIndex in blanks) continue
+                                                val row = panelIndex / gridSize
+                                                val col = panelIndex % gridSize
+                                                val left = col * bitmap.width / gridSize
+                                                val top = row * bitmap.height / gridSize
+                                                val right = (col + 1) * bitmap.width / gridSize
+                                                val bottom = (row + 1) * bitmap.height / gridSize
+                                                val crop = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+                                                try {
+                                                    if (!signatures.add(panelSignature(crop))) {
+                                                        duplicateSkipped++
+                                                        continue
+                                                    }
+                                                    val filename = "${baseName}_AA_${(panelIndex + 1).toString().padStart(2, '0')}.jpg"
+                                                    val file = File(outputFolder, filename)
+                                                    FileOutputStream(file).use { output ->
+                                                        if (!crop.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
+                                                            throw Exception("Could not save $filename")
+                                                        }
+                                                    }
+                                                    added.add(Scene(Uri.fromFile(file), filename))
+                                                } finally {
+                                                    crop.recycle()
+                                                }
+                                            }
+                                        } finally {
+                                            bitmap.recycle()
+                                        }
+                                    } catch (_: Exception) {
+                                        failed++
+                                    }
+                                }
+                                BatchStoryboardResult(added, blankSkipped, duplicateSkipped, failed)
+                            }
+                            val combined = (scenes + result.added).sortedWith(compareBy<Scene> { naturalKey(it.name) })
+                            onScenesChange(applyTimelineSrt(combined, timelineSrtText))
+                            status = "Batch split complete: ${result.added.size} scenes from ${targets.size} storyboards • ${result.blankSkipped} blank panels skipped • ${result.duplicateSkipped} duplicates skipped • ${result.failed} images failed"
+                        } catch (e: Exception) {
+                            status = "Batch split error: ${e.message ?: "Unknown error"}"
+                        } finally {
+                            processing = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = selectedFolderUris.isNotEmpty() && !processing
+            ) { Text(if (processing) "Splitting all selected..." else "Split All Selected Storyboards") }
             OutlinedButton(
                 onClick = {
                     val additions = folderImages.map { Scene(it.uri, it.name ?: "Image") }
@@ -1029,7 +1139,7 @@ fun StoryboardPage(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !processing
-            ) { Text("Add All Folder Images as Scenes") }
+            ) { Text("Add All Folder Images as Scenes (without splitting)") }
         }
 
         Text("Choose Grid Size", fontWeight = FontWeight.Bold)
