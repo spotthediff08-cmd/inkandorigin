@@ -1175,13 +1175,14 @@ fun StoryboardPage(
                             }
 
                             val addedScenes = result.first
-                            onScenesChange(
-                                (scenes + addedScenes).sortedWith(
-                                    compareBy<Scene> { naturalKey(it.name) }
-                                )
+                            val combined = (scenes + addedScenes).sortedWith(
+                                compareBy<Scene> { naturalKey(it.name) }
                             )
-                            status =
-                                "${addedScenes.size} panels added. ${result.second} duplicates skipped."
+                            onScenesChange(applyTimelineSrt(combined, timelineSrtText))
+                            val cueCount = SubtitleEngine.parse(timelineSrtText).size
+                            status = if (cueCount > 0 && cueCount != combined.size) {
+                                "${addedScenes.size} panels added • SRT has $cueCount cues for ${combined.size} images; matched in order • ${result.second} duplicates skipped"
+                            } else "${addedScenes.size} panels added. ${result.second} duplicates skipped."
                         } catch (e: Exception) {
                             status = "Split error: ${e.message ?: "Unknown error"}"
                         } finally {
