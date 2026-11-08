@@ -40,7 +40,8 @@ data class ExportSettings(
     val subtitleColor: String = "White",
     val subtitlePosition: String = "Bottom",
     val subtitleOutline: Boolean = true,
-    val subtitleBackground: Boolean = false
+    val subtitleBackground: Boolean = false,
+    val frameRate: Int = 30
 )
 
 @UnstableApi
@@ -66,7 +67,7 @@ object VideoExportEngine {
             val mediaItem = MediaItem.Builder().setUri(scene.uri).setImageDurationMs(durationMs).build()
             val motion = motionEffect(scene.motion, durationMs, sceneIndex)
             EditedMediaItem.Builder(mediaItem)
-                .setFrameRate(30)
+                 .setFrameRate(settings.frameRate)
                 .setEffects(Effects(emptyList(), listOf(motion)))
                 .build()
         }
