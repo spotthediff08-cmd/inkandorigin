@@ -85,7 +85,9 @@ fun StudioApp() {
     }
     var audio by remember { mutableStateOf<Uri?>(null) }
     var srtText by remember { mutableStateOf("") }
-    var srtName by remember { mutableStateOf("No subtitle file selected") }
+    var srtName by remember { mutableStateOf("No timeline SRT selected") }
+    var wordSrtText by remember { mutableStateOf("") }
+    var wordSrtName by remember { mutableStateOf("No word-level SRT selected") }
     var projectName by remember { mutableStateOf("Untitled Project") }
     var status by remember { mutableStateOf("Ready to create") }
     var resolution by remember { mutableStateOf("1080p") }
@@ -117,10 +119,10 @@ fun StudioApp() {
             delay(500)
         }
     }
-    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) {
+    LaunchedEffect(projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) {
         delay(900)
         runCatching {
-            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) }
+            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) }
             savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
         }.onFailure { status = "Autosave error: " + (it.message ?: "Unknown error") }
     }
@@ -136,15 +138,17 @@ fun StudioApp() {
             }
         }
     }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             val importedScenes = uris.map { Scene(it, it.lastPathSegment?.substringAfterLast('/') ?: "Scene", motion = globalMotion) }
             updateScenes((scenes + importedScenes).sortedWith(compareBy { naturalKey(it.name) }))
             status = "${importedScenes.size} images imported"
         }
     }
-    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { audio = it; if (it != null) status = "Voiceover selected" }
-    val srtPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) { runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; audio = uri; status = "Voiceover selected" }
+    }
+    val srtPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             srtName = uri.lastPathSegment ?: "Subtitle file"
             status = "Reading subtitle file…"
@@ -156,6 +160,16 @@ fun StudioApp() {
                         } ?: throw IllegalStateException("Cannot open subtitle file")
                     }
                     srtText = loadedText
+                    val parsed = SubtitleEngine.parse(loadedText)
+                    if (scenes.isNotEmpty() && parsed.isNotEmpty()) {
+                        val mapped = scenes.mapIndexed { index, scene ->
+                            val from = index * parsed.size / scenes.size
+                            val until = ((index + 1) * parsed.size / scenes.size).coerceAtLeast(from + 1).coerceAtMost(parsed.size)
+                            val duration = if (from < parsed.size) parsed.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f else scene.duration
+                            scene.copy(duration = duration.coerceAtLeast(0.5f))
+                        }
+                        updateScenes(mapped)
+                    }
                     val cueCount = Regex("""(?m)^\s*\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->""").findAll(loadedText).count()
                     status = if (cueCount > 0) {
                         "SRT loaded • $cueCount subtitle cues"
@@ -165,6 +179,17 @@ fun StudioApp() {
                 } catch (e: Exception) {
                     status = "SRT import failed: ${e.message ?: "Unknown error"}"
                 }
+            }
+        }
+    }
+
+    val wordSrtPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            scope.launch {
+                runCatching { withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText().removePrefix("\\uFEFF") } ?: error("Cannot read SRT") } }
+                    .onSuccess { wordSrtText = it; wordSrtName = uri.lastPathSegment ?: "Word-level SRT"; status = "Word-level SRT loaded" }
+                    .onFailure { status = "Subtitle SRT import failed: ${it.message}" }
             }
         }
     }
@@ -194,11 +219,11 @@ fun StudioApp() {
             }
         ) { padding ->
             when(tab) {
-                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { folderPicker.launch(null) }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" }, { showProjects = true })
-                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, srtText, audio, transition)
+                "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true })
+                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
-            "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
+            "Subtitles" -> SubtitlePage(Modifier.padding(padding), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
+                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
             }
         }
     }
@@ -230,7 +255,9 @@ fun StudioApp() {
                                                 sceneRedo = emptyList()
                                                 audio = loaded.audio
                                                 srtText = loaded.srtText
-                                                srtName = if (loaded.srtText.isNotBlank()) "Saved subtitles" else "No subtitle file selected"
+                                                srtName = if (loaded.srtText.isNotBlank()) "Timeline SRT saved" else "No timeline SRT selected"
+                                                wordSrtText = loaded.wordSrtText
+                                                wordSrtName = if (loaded.wordSrtText.isNotBlank()) "Word-level SRT saved" else "No word-level SRT selected"
                                                 resolution = loaded.resolution
                                                 aspectRatio = loaded.aspectRatio
                                                 globalMotion = loaded.globalMotion
@@ -274,7 +301,9 @@ fun StudioApp() {
                     sceneRedo = emptyList()
                     audio = null
                     srtText = ""
-                    srtName = "No subtitle file selected"
+                    srtName = "No timeline SRT selected"
+                    wordSrtText = ""
+                    wordSrtName = "No word-level SRT selected"
                     status = "New project created"
                     showProjects = false
                 }) { Text("New project") }
@@ -284,7 +313,7 @@ fun StudioApp() {
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addImages:()->Unit, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -301,15 +330,14 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
         }
         item { OutlinedButton(onClick = openProjects, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Open / Manage Saved Projects") } }
         item { SectionTitle("IMPORT YOUR ASSETS") }
-        item { ActionCard("Scene images", "$count images selected", Icons.Default.Image, addImages) }
-        item { ActionCard("Import image folder", "Add all images from a folder", Icons.Default.Folder, addFolder) }
+        item { ActionCard("Import image folder", "$count images • Select your storyboard images folder", Icons.Default.Folder, addFolder) }
         item { ActionCard("Voiceover", if(hasAudio) "Audio file selected" else "Choose narration audio", Icons.Default.Mic, addAudio) }
         item { ActionCard("Subtitles (SRT)", srt, Icons.Default.Subtitles, addSrt) }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("WORKFLOW", fontWeight = FontWeight.Bold)
-                    Text("1. Import scene images\n2. Add voiceover audio\n3. Import or edit subtitles\n4. Set motion and export settings", color = Muted, lineHeight = 23.sp)
+                    Text("1. Import your image folder\n2. Add voiceover audio\n3. Import timeline SRT\n4. Add word-level SRT in Subtitles\n5. Export MP4", color = Muted, lineHeight = 23.sp)
                     Button(onClick = goScenes, modifier = Modifier.fillMaxWidth()) { Text("Manage scenes") }
                 }
             }
