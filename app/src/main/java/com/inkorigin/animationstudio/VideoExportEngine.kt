@@ -106,7 +106,7 @@ object VideoExportEngine {
         }
         val sequences = mutableListOf(videoSequence)
         if (audioUri != null) {
-            val totalVideoDurationMs = scenes.sumOf { (it.duration.coerceIn(0.5f, 300f) * 1000).toLong() }
+            val totalVideoDurationMs = scenes.sumOf { (it.duration.coerceIn(0.1f, 300f) * 1000).toLong() }
             val audioDurationMs = runCatching {
                 val retriever = MediaMetadataRetriever()
                 try {
