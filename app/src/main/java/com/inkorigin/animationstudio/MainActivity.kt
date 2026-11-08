@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -83,7 +84,7 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Panel) {
-                    listOf("Home", "Scenes", "Subtitles", "Export").forEach { item ->
+                    listOf("Home", "Scenes", "Storyboard", "Subtitles", "Export").forEach { item ->
                         NavigationBarItem(
                             selected = tab == item, onClick = { tab = item },
                             icon = { Icon(when(item) { "Scenes" -> Icons.Default.Collections; "Subtitles" -> Icons.Default.Subtitles; "Export" -> Icons.Default.Movie; else -> Icons.Default.Home }, null) },
@@ -96,7 +97,8 @@ fun StudioApp() {
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { imagePicker.launch("image/*") }, { audioPicker.launch("audio/*") }, { srtPicker.launch("*/*") }, { tab = "Scenes" })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, { scenes = it }, { imagePicker.launch("image/*") }, globalMotion, { globalMotion = it })
-                "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") })
+                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes) { scenes = it }
+            "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, status)
             }
         }
@@ -260,4 +262,150 @@ fun ActionCard(title:String, detail:String, icon: androidx.compose.ui.graphics.v
 
 fun naturalKey(value: String): String = value.lowercase().replace(Regex("\\d+")) { match ->
     match.value.padStart(12, '0')
+}
+
+
+@Composable
+fun StoryboardPage(
+    modifier: Modifier,
+    scenes: List<Scene>,
+    onScenesChange: (List<Scene>) -> Unit
+) {
+    val context = LocalContext.current
+    var storyboardUri by remember { mutableStateOf<Uri?>(null) }
+    val selectedPanels = remember {
+        mutableStateListOf<Int>().apply { addAll(0..8) }
+    }
+    var status by remember { mutableStateOf("Select a 3×3 storyboard image") }
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        storyboardUri = uri
+        selectedPanels.clear()
+        selectedPanels.addAll(0..8)
+        status = if (uri != null) "Image ready to split" else "No image selected"
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Storyboard Splitter", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Select one image containing 9 equal panels.", color = Muted)
+
+        Button(
+            onClick = { picker.launch("image/*") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Select Storyboard Image")
+        }
+
+        storyboardUri?.let { uri ->
+            AsyncImage(
+                model = uri,
+                contentDescription = "Storyboard preview",
+                modifier = Modifier.fillMaxWidth().height(180.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Text("Tap panels to include or exclude them.", color = Muted)
+
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                repeat(3) { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        repeat(3) { col ->
+                            val index = row * 3 + col
+                            val selected = index in selectedPanels
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .background(
+                                        if (selected) Accent else Panel,
+                                        RoundedCornerShape(9.dp)
+                                    )
+                                    .clickable {
+                                        if (selected) selectedPanels.remove(index)
+                                        else selectedPanels.add(index)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "AA_${(index + 1).toString().padStart(2, '0')}",
+                                    color = if (selected) Color.Black else Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text("${selectedPanels.size} of 9 panels selected", color = Muted)
+
+            Button(
+                onClick = {
+                    try {
+                        val input = context.contentResolver.openInputStream(uri)
+                            ?: throw Exception("Cannot open selected image")
+
+                        val bitmap = input.use { BitmapFactory.decodeStream(it) }
+                            ?: throw Exception("Invalid image")
+
+                        if (bitmap.width < 3 || bitmap.height < 3) {
+                            bitmap.recycle()
+                            throw Exception("Image is too small")
+                        }
+
+                        val folder = File(
+                            context.filesDir,
+                            "storyboard/${System.currentTimeMillis()}"
+                        )
+                        if (!folder.mkdirs() && !folder.isDirectory) {
+                            bitmap.recycle()
+                            throw Exception("Cannot create output folder")
+                        }
+
+                        val addedScenes = selectedPanels.sorted().map { index ->
+                            val row = index / 3
+                            val col = index % 3
+                            val left = col * bitmap.width / 3
+                            val top = row * bitmap.height / 3
+                            val right = (col + 1) * bitmap.width / 3
+                            val bottom = (row + 1) * bitmap.height / 3
+
+                            val crop = Bitmap.createBitmap(
+                                bitmap, left, top, right - left, bottom - top
+                            )
+                            val filename =
+                                "AA_${(index + 1).toString().padStart(2, '0')}.jpg"
+                            val file = File(folder, filename)
+
+                            FileOutputStream(file).use {
+                                crop.compress(Bitmap.CompressFormat.JPEG, 95, it)
+                            }
+                            crop.recycle()
+                            Scene(Uri.fromFile(file), filename)
+                        }
+
+                        bitmap.recycle()
+                        onScenesChange(
+                            (scenes + addedScenes).sortedWith(compareBy { naturalKey(it.name) })
+                        )
+                        status = "${addedScenes.size} panels added to Scenes"
+                    } catch (e: Exception) {
+                        status = "Error: ${e.message ?: "Could not split image"}"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = selectedPanels.isNotEmpty()
+            ) {
+                Text("Split & Add to Scenes")
+            }
+        }
+
+        Text(status, color = Accent)
+    }
 }
