@@ -44,7 +44,7 @@ data class ExportSettings(
     val subtitleOutline: Boolean = true,
     val subtitleBackground: Boolean = false,
     val frameRate: Int = 30,
-    val transition: String = "Fade through black"
+    val transition: String = "None"
 )
 
 @UnstableApi
