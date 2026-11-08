@@ -30,6 +30,7 @@ import androidx.media3.transformer.Transformer
 import java.io.File
 import java.util.Locale
 import kotlin.math.max
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -41,7 +42,8 @@ data class ExportSettings(
     val subtitlePosition: String = "Bottom",
     val subtitleOutline: Boolean = true,
     val subtitleBackground: Boolean = false,
-    val frameRate: Int = 30
+    val frameRate: Int = 30,
+    val transition: String = "Fade through black"
 )
 
 @UnstableApi
@@ -72,6 +74,12 @@ object VideoExportEngine {
                 .build()
         }
         val videoSequence = EditedMediaItemSequence.withVideoFrom(videoItems)
+        val sceneBoundariesMs = mutableListOf<Long>()
+        var sceneBoundaryMs = 0L
+        scenes.dropLast(1).forEach { scene ->
+            sceneBoundaryMs += (scene.duration.coerceIn(0.5f, 300f) * 1000).toLong()
+            sceneBoundariesMs += sceneBoundaryMs
+        }
         val sequences = mutableListOf(videoSequence)
         if (audioUri != null) {
             val totalVideoDurationMs = scenes.sumOf { (it.duration.coerceIn(0.5f, 300f) * 1000).toLong() }
@@ -103,9 +111,12 @@ object VideoExportEngine {
         videoEffects += Presentation.createForWidthAndHeight(
             widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
-        if (cues.isNotEmpty()) {
-            videoEffects += OverlayEffect(listOf(SubtitleCanvasOverlay(cues, settings)))
+        val overlays = mutableListOf<CanvasOverlay>()
+        if (settings.transition == "Fade through black" && sceneBoundariesMs.isNotEmpty()) {
+            overlays += SceneFadeOverlay(sceneBoundariesMs)
         }
+        if (cues.isNotEmpty()) overlays += SubtitleCanvasOverlay(cues, settings)
+        if (overlays.isNotEmpty()) videoEffects += OverlayEffect(overlays)
         val composition = Composition.Builder(sequences)
             .setEffects(Effects(emptyList(), videoEffects))
             .build()
@@ -214,6 +225,21 @@ object VideoExportEngine {
 }
 
 @UnstableApi
+private class SceneFadeOverlay(
+    private val sceneBoundariesMs: List<Long>,
+    private val halfFadeDurationMs: Long = 250L
+) : CanvasOverlay(true) {
+    override fun onDraw(canvas: Canvas, presentationTimeUs: Long) {
+        val timeMs = presentationTimeUs / 1000L
+        val alpha = sceneBoundariesMs.maxOfOrNull { boundary ->
+            (1f - abs(timeMs - boundary).toFloat() / halfFadeDurationMs).coerceIn(0f, 1f)
+        } ?: 0f
+        if (alpha > 0f) {
+            canvas.drawColor(android.graphics.Color.argb((alpha * 255).toInt(), 0, 0, 0))
+        }
+    }
+}
+
 private class SubtitleCanvasOverlay(
     private val cues: List<SubtitleCue>,
     private val settings: ExportSettings
