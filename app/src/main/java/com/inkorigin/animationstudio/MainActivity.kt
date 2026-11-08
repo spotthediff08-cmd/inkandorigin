@@ -603,7 +603,7 @@ fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: Strin
         }
         if (exporting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(exportStatus, color = Accent)
-        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = { /* current export appears at the top of history */ history.firstOrNull()?.let(onShare) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
+        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = { /* current export appears at the top of history */ history.firstOrNull()?.let { onShare(it.uri) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
         if (history.isNotEmpty()) {
             Text("EXPORT HISTORY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             history.take(10).forEach { entry ->
