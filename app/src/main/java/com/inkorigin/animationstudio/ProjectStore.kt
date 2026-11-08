@@ -1,0 +1,83 @@
+package com.inkorigin.animationstudio
+
+import android.content.Context
+import android.net.Uri
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+
+data class ProjectSummary(val id: String, val name: String, val updatedAt: Long, val sceneCount: Int)
+data class LoadedProject(val id: String, val name: String, val scenes: List<Scene>, val audio: Uri?, val srtText: String, val resolution: String, val aspectRatio: String, val globalMotion: String)
+
+object ProjectStore {
+    private fun root(context: Context) = File(context.filesDir, "projects").apply { mkdirs() }
+
+    fun list(context: Context): List<ProjectSummary> =
+        root(context).listFiles()?.filter { File(it, "project.json").isFile }?.mapNotNull { folder ->
+            runCatching {
+                val json = JSONObject(File(folder, "project.json").readText())
+                ProjectSummary(folder.name, json.optString("name", "Untitled Project"), json.optLong("updatedAt", folder.lastModified()), json.optJSONArray("scenes")?.length() ?: 0)
+            }.getOrNull()
+        }?.sortedByDescending { it.updatedAt } ?: emptyList()
+
+    fun save(context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String, resolution: String, aspectRatio: String, globalMotion: String) {
+        val folder = File(root(context), id).apply { mkdirs() }
+        val assets = File(folder, "assets").apply { mkdirs() }
+        val sceneArray = JSONArray()
+        scenes.forEachIndexed { index, scene ->
+            val target = File(assets, "scene_%04d.jpg".format(index + 1))
+            copyUri(context, scene.uri, target)
+            sceneArray.put(JSONObject().put("path", target.absolutePath).put("name", scene.name).put("duration", scene.duration.toDouble()).put("motion", scene.motion))
+        }
+        val audioTarget = audio?.let { File(assets, "voiceover_audio").also { target -> copyUri(context, it, target) } }
+        val json = JSONObject().put("id", id).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
+            .put("scenes", sceneArray).put("audioPath", audioTarget?.absolutePath ?: JSONObject.NULL)
+            .put("srtText", srtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
+        File(folder, "project.json").writeText(json.toString())
+    }
+
+    fun load(context: Context, id: String): LoadedProject {
+        val folder = File(root(context), id)
+        val json = JSONObject(File(folder, "project.json").readText())
+        val array = json.optJSONArray("scenes") ?: JSONArray()
+        val scenes = (0 until array.length()).mapNotNull { i ->
+            val item = array.optJSONObject(i) ?: return@mapNotNull null
+            val file = File(item.optString("path"))
+            if (!file.isFile) return@mapNotNull null
+            Scene(Uri.fromFile(file), item.optString("name", file.name), item.optDouble("duration", 4.0).toFloat(), item.optString("motion", "Cinematic"))
+        }
+        val audioPath = json.optString("audioPath", "")
+        return LoadedProject(id, json.optString("name", "Untitled Project"), scenes,
+            if (audioPath.isNotBlank() && File(audioPath).isFile) Uri.fromFile(File(audioPath)) else null,
+            json.optString("srtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"))
+    }
+
+    fun duplicate(context: Context, id: String): String {
+        val source = File(root(context), id)
+        val newId = "project_" + System.currentTimeMillis()
+        val destination = File(root(context), newId)
+        source.copyRecursively(destination, overwrite = false)
+        val file = File(destination, "project.json")
+        val json = JSONObject(file.readText()).put("id", newId).put("name", JSONObject(file.readText()).optString("name", "Project") + " Copy").put("updatedAt", System.currentTimeMillis())
+        file.writeText(json.toString())
+        return newId
+    }
+
+    fun rename(context: Context, id: String, name: String) {
+        val file = File(root(context), "$id/project.json")
+        val json = JSONObject(file.readText()).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
+        file.writeText(json.toString())
+    }
+
+    fun delete(context: Context, id: String) { File(root(context), id).deleteRecursively() }
+
+    private fun copyUri(context: Context, uri: Uri, target: File) {
+        if (uri.scheme == "file") {
+            val source = File(uri.path ?: error("Missing file path"))
+            if (source.canonicalFile != target.canonicalFile) source.inputStream().use { input -> target.outputStream().use { input.copyTo(it) } }
+        } else {
+            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                ?: error("Cannot read selected file")
+        }
+    }
+}
