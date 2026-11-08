@@ -132,7 +132,15 @@ fun StudioApp() {
             scope.launch {
                 val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
                 if (imported.isNotEmpty()) {
-                    updateScenes((scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image") }).sortedWith(compareBy { naturalKey(it.name) }))
+                    val combined = (scenes + imported.map { file -> Scene(file.uri, file.name ?: "Image", motion = globalMotion) }).sortedWith(compareBy { naturalKey(it.name) })
+                    val cues = SubtitleEngine.parse(srtText)
+                    val timed = if (cues.isEmpty()) combined else combined.mapIndexed { index, scene ->
+                        val from = index * cues.size / combined.size
+                        val until = ((index + 1) * cues.size / combined.size).coerceAtLeast(from + 1).coerceAtMost(cues.size)
+                        val seconds = cues.subList(from, until).sumOf { (it.endMs - it.startMs).coerceAtLeast(1L) } / 1000f
+                        scene.copy(duration = seconds.coerceAtLeast(0.5f))
+                    }
+                    updateScenes(timed)
                     status = imported.size.toString() + " images imported from folder"
                 } else status = "No images found in selected folder"
             }
@@ -150,7 +158,8 @@ fun StudioApp() {
     }
     val srtPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            srtName = uri.lastPathSegment ?: "Subtitle file"
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            srtName = uri.lastPathSegment ?: "Timeline SRT"
             status = "Reading subtitle file…"
             scope.launch {
                 try {
@@ -882,6 +891,20 @@ fun StoryboardPage(
 
     val selectedPanels = remember { mutableStateListOf<Int>() }
 
+    val storyboardFolderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { folderUri ->
+        if (folderUri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            scope.launch {
+                val imported = withContext(Dispatchers.IO) { DocumentFile.fromTreeUri(context, folderUri)?.let { collectImageDocuments(it) } ?: emptyList() }
+                if (imported.isNotEmpty()) {
+                    val additions = imported.map { Scene(it.uri, it.name ?: "Image") }
+                    onScenesChange((scenes + additions).sortedWith(compareBy { naturalKey(it.name) }))
+                    status = "${imported.size} storyboard images added to scene timeline"
+                } else status = "No images found in selected folder"
+            }
+        }
+    }
+
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -938,12 +961,17 @@ fun StoryboardPage(
         )
 
         Button(
-            onClick = { picker.launch("image/*") },
+            onClick = { storyboardFolderPicker.launch(null) },
             modifier = Modifier.fillMaxWidth(),
             enabled = !processing
         ) {
-            Text("Select Storyboard Image")
+            Icon(Icons.Default.Folder, null); Spacer(Modifier.width(8.dp)); Text("Import Image Folder")
         }
+        OutlinedButton(
+            onClick = { picker.launch("image/*") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !processing
+        ) { Text("Split a Storyboard Contact Sheet") }
 
         Text("Choose Grid Size", fontWeight = FontWeight.Bold)
 
