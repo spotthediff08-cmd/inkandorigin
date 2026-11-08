@@ -2,6 +2,7 @@ package com.inkorigin.animationstudio
 
 import android.content.Context
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -34,13 +35,17 @@ object ProjectStore {
         val assets = File(folder, "assets").apply { mkdirs() }
         val sceneArray = JSONArray()
         scenes.forEachIndexed { index, scene ->
-            val extension = scene.name.substringAfterLast('.', "jpg").lowercase().filter { it.isLetterOrDigit() }.ifBlank { "jpg" }
+            val namedExtension = scene.name.substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }
+            val mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType(context.contentResolver.getType(scene.uri))
+            val extension = namedExtension.takeIf { it.length in 2..5 } ?: mimeExtension ?: "jpg"
             val target = File(assets, "scene_%04d.%s".format(index + 1, extension))
             copyUri(context, scene.uri, target)
             sceneArray.put(JSONObject().put("path", target.absolutePath).put("name", scene.name).put("duration", scene.duration.toDouble()).put("motion", scene.motion))
         }
         val audioTarget = audio?.let { uri ->
-            val extension = (uri.lastPathSegment ?: "").substringAfterLast('.', "audio").lowercase().filter { it.isLetterOrDigit() }.ifBlank { "audio" }
+            val namedExtension = (uri.lastPathSegment ?: "").substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }
+            val mimeExtension = MimeTypeMap.getSingleton().getExtensionFromMimeType(context.contentResolver.getType(uri))
+            val extension = namedExtension.takeIf { it.length in 2..5 } ?: mimeExtension ?: "audio"
             File(assets, "voiceover_audio." + extension).also { target -> copyUri(context, uri, target) }
         }
         val json = JSONObject().put("id", id).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
