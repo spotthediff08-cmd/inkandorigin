@@ -16,7 +16,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.CanvasOverlay
-import androidx.media3.effect.Effects
+import androidx.media3.transformer.Effects
 import androidx.media3.effect.MatrixTransformation
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
@@ -119,7 +119,7 @@ object VideoExportEngine {
             else -> 1080
         }
         return when (aspectRatio) {
-            "9:16" -> Pair(shortSide * 9 / 16, shortSide)
+            "9:16" -> Pair(shortSide, shortSide * 16 / 9)
             "1:1" -> Pair(shortSide, shortSide)
             else -> Pair(shortSide * 16 / 9, shortSide)
         }
