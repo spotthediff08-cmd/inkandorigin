@@ -88,6 +88,7 @@ fun StudioApp() {
     var resolution by remember { mutableStateOf("1080p") }
     var globalMotion by remember { mutableStateOf("Cinematic") }
     var aspectRatio by remember { mutableStateOf("16:9") }
+    var frameRate by remember { mutableIntStateOf(30) }
     var subtitleFontSize by remember { mutableIntStateOf(32) }
     var subtitleColor by remember { mutableStateOf("White") }
     var subtitlePosition by remember { mutableStateOf("Bottom") }
@@ -105,10 +106,10 @@ fun StudioApp() {
         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
         exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) }
     }
-    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground) {
+    LaunchedEffect(projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate) {
         delay(900)
         runCatching {
-            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground) }
+            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate) }
             savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
         }.onFailure { status = "Autosave error: " + (it.message ?: "Unknown error") }
     }
@@ -186,7 +187,7 @@ fun StudioApp() {
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch("image/*") }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, srtText)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), srtName, srtText, { srtText = it }, { srtPicker.launch("*/*") }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
+                else -> ExportPage(Modifier.padding(padding), scenes.size, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, exporting, exportStatus, { VideoExportEngine.export(context, scenes, audio, srtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate), onStarted = { exporting = true; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportStatus = "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
             }
         }
     }
@@ -226,6 +227,7 @@ fun StudioApp() {
                                                 subtitlePosition = loaded.subtitlePosition
                                                 subtitleOutline = loaded.subtitleOutline
                                                 subtitleBackground = loaded.subtitleBackground
+                                                frameRate = loaded.frameRate
                                                 status = "Project opened"
                                                 showProjects = false
                                             }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
@@ -581,7 +583,7 @@ fun SubtitlePage(
 }
 
 @Composable
-fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, exporting: Boolean, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
+fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, frameRate: Int, setFrameRate:(Int)->Unit, exporting: Boolean, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
     Column(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Export video", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
@@ -592,6 +594,8 @@ fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: Strin
         }
         Text("ASPECT RATIO", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("16:9", "9:16", "1:1").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) } }
+        Text("FRAME RATE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(24, 30, 60).forEach { value -> FilterChip(selected = frameRate == value, onClick = { setFrameRate(value) }, label = { Text(value.toString() + " fps") }) } }
         Text("OUTPUT RESOLUTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("720p", "1080p", "4K").forEach { value ->
@@ -601,7 +605,7 @@ fun ExportPage(modifier: Modifier, count: Int, audio: Boolean, resolution: Strin
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(16.dp)) {
                 Text("MP4 rendering", fontWeight = FontWeight.Bold)
-                Text("H.264 video • AAC voiceover • SRT subtitle burn-in • 30 fps", color = Muted, fontSize = 13.sp)
+                Text("H.264 video • AAC voiceover • SRT subtitle burn-in • " + frameRate + " fps", color = Muted, fontSize = 13.sp)
             }
         }
         Button(onClick = onExport, enabled = count > 0 && !exporting, modifier = Modifier.fillMaxWidth()) {
