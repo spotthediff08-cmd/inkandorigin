@@ -1022,7 +1022,7 @@ fun StoryboardPage(
             Icon(Icons.Default.Folder, null); Spacer(Modifier.width(8.dp)); Text("Import Image Folder")
         }
         OutlinedButton(
-            onClick = { picker.launch("image/*") },
+            onClick = { picker.launch(arrayOf("image/*")) },
             modifier = Modifier.fillMaxWidth(),
             enabled = !processing
         ) { Text("Choose One Contact Sheet") }
