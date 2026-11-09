@@ -96,7 +96,7 @@ fun StudioApp() {
     var aspectRatio by remember { mutableStateOf("16:9") }
     var frameRate by remember { mutableIntStateOf(30) }
     var transition by remember { mutableStateOf("None") }
-    var subtitleFontSize by remember { mutableIntStateOf(32) }
+    var subtitleFontSize by remember { mutableIntStateOf(64) }
     var subtitleColor by remember { mutableStateOf("White") }
     var subtitlePosition by remember { mutableStateOf("Bottom") }
     var subtitleOutline by remember { mutableStateOf(true) }
@@ -227,7 +227,7 @@ fun StudioApp() {
         ) { padding ->
             when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true })
-                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition)
+                "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground)
                 "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes, srtText)
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -353,7 +353,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
@@ -571,6 +571,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             "Zoom Out" -> 1.12f - 0.12f * progress
             "Zoom In-Out" -> 1f + 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
             "Zoom Out-In" -> 1.10f - 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
+            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
             "Cinematic", "Ken Burns", "Zoom+Pan" -> 1f + 0.09f * progress
             else -> 1.04f
         }
@@ -590,14 +591,14 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 scaleX = scale
                                 scaleY = scale
                                 translationX = when (previewMotion) {
-                                    "Pan Left" -> 36f - 72f * progress
-                                    "Pan Right" -> -36f + 72f * progress
-                                    "Ken Burns", "Cinematic", "Zoom+Pan" -> -24f + 48f * progress
+                                    "Pan Left" -> 14f - 28f * progress
+                                    "Pan Right" -> -14f + 28f * progress
+                                    "Ken Burns", "Cinematic", "Zoom+Pan" -> -10f + 20f * progress
                                     else -> 0f
                                 }
                                 translationY = when (previewMotion) {
-                                    "Pan Up" -> 36f - 72f * progress
-                                    "Pan Down" -> -36f + 72f * progress
+                                    "Pan Up" -> 14f - 28f * progress
+                                    "Pan Down" -> -14f + 28f * progress
                                     else -> 0f
                                 }
                             }
@@ -605,8 +606,14 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
                         Text(currentScene.name, color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
                         activePreviewCue?.let { cue ->
-                            Text(cue.text, color = Color.White, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.align(Alignment.BottomCenter).padding(10.dp).background(Color(0xCC000000), RoundedCornerShape(6.dp)).padding(8.dp))
+                            val previewTextColor = when (subtitleColor) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }
+                            val subtitleAlignment = when (subtitlePosition) { "Top" -> Alignment.TopCenter; "Center" -> Alignment.Center; else -> Alignment.BottomCenter }
+                            Text(cue.text, color = previewTextColor, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontSize = (subtitleFontSize * 230f / 1080f).coerceAtLeast(8f).sp,
+                                style = if (subtitleOutline) androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, androidx.compose.ui.geometry.Offset(1f, 1f), 2f)) else androidx.compose.ui.text.TextStyle.Default,
+                                modifier = Modifier.align(subtitleAlignment).padding(10.dp)
+                                    .then(if (subtitleBackground) Modifier.background(Color(0xCC000000), RoundedCornerShape(6.dp)) else Modifier)
+                                    .padding(8.dp))
                         }
                     }
                     Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
@@ -685,8 +692,8 @@ fun SubtitlePage(
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("SUBTITLE STYLE", fontWeight = FontWeight.Bold)
-                Text("Font size: " + fontSize + " px", color = Muted)
-                Slider(value = fontSize.toFloat(), onValueChange = { setFontSize(it.toInt()) }, valueRange = 18f..64f, steps = 22)
+                Text("Font size: " + fontSize + " px at 1080p", color = Muted)
+                Slider(value = fontSize.toFloat(), onValueChange = { setFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
                 Text("Text color", color = Muted)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("White", "Yellow", "Cyan").forEach { option -> FilterChip(selected = color == option, onClick = { setColor(option) }, label = { Text(option) }) }
@@ -703,7 +710,7 @@ fun SubtitlePage(
                     Text("Background box")
                 }
                 Surface(color = if (background) Color(0xCC000000) else Color.Transparent, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Text(cues.firstOrNull()?.text ?: "Your subtitle preview appears here", color = when(color) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }, fontSize = fontSize.coerceIn(12, 48).sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
+                    Text(cues.firstOrNull()?.text ?: "Your subtitle preview appears here", color = when(color) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }, fontSize = (fontSize * 230f / 1080f).coerceAtLeast(8f).sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(12.dp))
                 }
                 Text("Preview settings are saved with the project. Outline and final burn-in are applied during video rendering.", color = Muted, fontSize = 11.sp)
                 Text("Word highlighting is spread evenly across each SRT cue. It is approximate unless your subtitles contain word-level timestamps.", color = Muted, fontSize = 11.sp)
