@@ -122,13 +122,58 @@ object ProjectStore {
 
     fun duplicate(context: Context, id: String): String {
         val source = File(root(context), safeProjectId(id))
-        val newId = "project_" + System.currentTimeMillis()
-        val destination = File(root(context), newId)
-        source.copyRecursively(destination, overwrite = false)
-        val file = File(destination, "project.json")
-        val json = JSONObject(file.readText()).put("id", newId).put("name", JSONObject(file.readText()).optString("name", "Project") + " Copy").put("updatedAt", System.currentTimeMillis())
-        file.writeText(json.toString())
-        return newId
+        require(File(source, "project.json").isFile) { "Project not found" }
+
+        var newId: String
+        var destination: File
+        do {
+            newId = "project_" + System.currentTimeMillis()
+            destination = File(root(context), newId)
+        } while (destination.exists())
+
+        try {
+            source.copyRecursively(destination, overwrite = false)
+            val sourceJson = JSONObject(File(source, "project.json").readText())
+            val json = JSONObject(File(destination, "project.json").readText())
+                .put("id", newId)
+                .put("name", sourceJson.optString("name", "Project") + " Copy")
+                .put("updatedAt", System.currentTimeMillis())
+
+            // A duplicated project owns its copied assets. Never leave absolute paths
+            // pointing back into the original project, otherwise deleting the original
+            // would silently break the duplicate's images and voiceover.
+            val copiedScenes = json.optJSONArray("scenes") ?: JSONArray()
+            for (index in 0 until copiedScenes.length()) {
+                val scene = copiedScenes.optJSONObject(index) ?: continue
+                val oldPath = scene.optString("path")
+                if (oldPath.isBlank()) continue
+                val oldAsset = File(oldPath)
+                val relativePath = runCatching { oldAsset.canonicalFile.relativeTo(source.canonicalFile) }.getOrNull()
+                    ?: error("A scene asset is outside the source project")
+                val copiedAsset = File(destination, relativePath.path)
+                require(copiedAsset.isFile) { "A copied scene image is missing" }
+                scene.put("path", copiedAsset.absolutePath)
+            }
+
+            val oldAudioPath = json.optString("audioPath", "")
+            if (oldAudioPath.isNotBlank() && oldAudioPath != "null") {
+                val oldAudio = File(oldAudioPath)
+                val relativeAudioPath = runCatching { oldAudio.canonicalFile.relativeTo(source.canonicalFile) }.getOrNull()
+                    ?: error("The voiceover asset is outside the source project")
+                val copiedAudio = File(destination, relativeAudioPath.path)
+                require(copiedAudio.isFile) { "The copied voiceover is missing" }
+                json.put("audioPath", copiedAudio.absolutePath)
+            }
+
+            val projectFile = File(destination, "project.json")
+            val temporaryProjectFile = File(destination, "project.json.tmp")
+            temporaryProjectFile.writeText(json.toString())
+            replaceFile(temporaryProjectFile, projectFile)
+            return newId
+        } catch (error: Exception) {
+            destination.deleteRecursively()
+            throw error
+        }
     }
 
     fun rename(context: Context, id: String, name: String) {
