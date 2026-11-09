@@ -196,8 +196,34 @@ object VideoExportEngine {
     }
 
     private fun motionEffect(motion: String, durationMs: Long, sceneIndex: Int): MatrixTransformation {
-        // Full-frame mode: preserve all source-image edges in preview and exported video.
-        return MatrixTransformation { android.graphics.Matrix() }
+        val actualMotion = when (motion) {
+            "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[sceneIndex % 5]
+            "Alternate" -> if (sceneIndex % 2 == 0) "Zoom In" else "Zoom Out"
+            else -> motion
+        }
+        return MatrixTransformation { presentationTimeUs ->
+            val progress = (presentationTimeUs / (durationMs.coerceAtLeast(1L) * 1000f)).coerceIn(0f, 1f)
+            val scale = when (actualMotion) {
+                "Static" -> 1f
+                "Zoom In", "Auto Zoom" -> 1f + 0.06f * progress
+                "Zoom Out" -> 1.06f - 0.06f * progress
+                "Zoom In-Out" -> 1f + 0.045f * sin(progress * Math.PI).toFloat()
+                "Zoom Out-In" -> 1.045f - 0.045f * sin(progress * Math.PI).toFloat()
+                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.06f
+                else -> 1.03f + 0.04f * progress
+            }
+            val matrix = android.graphics.Matrix()
+            matrix.setScale(scale, scale, 0.5f, 0.5f)
+            when (actualMotion) {
+                "Pan Left" -> matrix.postTranslate(0.025f - 0.05f * progress, 0f)
+                "Pan Right" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0f)
+                "Pan Up" -> matrix.postTranslate(0f, 0.025f - 0.05f * progress)
+                "Pan Down" -> matrix.postTranslate(0f, -0.025f + 0.05f * progress)
+                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.012f + 0.024f * progress, 0.006f - 0.012f * progress)
+                else -> Unit
+            }
+            matrix
+        }
     }
 
     private fun publishToGallery(context: Context, source: File, projectName: String): Uri {
