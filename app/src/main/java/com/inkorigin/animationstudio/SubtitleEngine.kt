@@ -40,7 +40,7 @@ object SubtitleEngine {
         return cues
     }
     private fun toMs(h: Long, m: Long, s: Long, ms: Long): Long = h * 3_600_000L + m * 60_000L + s * 1_000L + ms
-    fun activeCue(cues: List<SubtitleCue>, positionMs: Long): SubtitleCue? = cues.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs }
+    fun activeCue(cues: List<SubtitleCue>, positionMs: Long): SubtitleCue? = cues.lastOrNull { positionMs >= it.startMs && positionMs < it.endMs }
     fun formatTime(ms: Long): String {
         val safe = ms.coerceAtLeast(0)
         return "%02d:%02d:%02d,%03d".format(safe / 3_600_000, (safe % 3_600_000) / 60_000, (safe % 60_000) / 1_000, safe % 1_000)
