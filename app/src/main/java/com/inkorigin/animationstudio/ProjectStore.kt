@@ -20,6 +20,11 @@ object ProjectStore {
 
     private const val STATE_PREFS = "animation_studio_project_state"
 
+    private fun safeProjectId(id: String): String {
+        require(id.matches(Regex("project_[0-9]+"))) { "Invalid project ID" }
+        return id
+    }
+
     fun lastOpenedId(context: Context): String? {
         val id = context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE)
             .getString("last_opened_project_id", null) ?: return null
@@ -47,7 +52,8 @@ object ProjectStore {
         resolution: String, aspectRatio: String, globalMotion: String, subtitleFontSize: Int,
         subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, frameRate: Int, transition: String
     ) {
-        val folder = File(root(context), id).apply { mkdirs() }
+        val safeId = safeProjectId(id)
+        val folder = File(root(context), safeId).apply { mkdirs() }
         val assets = File(folder, "assets").apply { mkdirs() }
         val sceneArray = JSONArray()
         scenes.forEachIndexed { index, scene ->
@@ -69,11 +75,18 @@ object ProjectStore {
             .put("srtText", srtText).put("wordSrtText", wordSrtText).put("resolution", resolution).put("aspectRatio", aspectRatio).put("globalMotion", globalMotion)
             .put("subtitleFontSize", subtitleFontSize).put("subtitleColor", subtitleColor).put("subtitlePosition", subtitlePosition)
              .put("subtitleOutline", subtitleOutline).put("subtitleBackground", subtitleBackground).put("frameRate", frameRate).put("transition", transition)
-        File(folder, "project.json").writeText(json.toString())
+        val projectFile = File(folder, "project.json")
+        val temporaryProjectFile = File(folder, "project.json.tmp")
+        temporaryProjectFile.writeText(json.toString())
+        if (projectFile.exists() && !projectFile.delete()) error("Cannot replace saved project")
+        if (!temporaryProjectFile.renameTo(projectFile)) {
+            temporaryProjectFile.delete()
+            error("Cannot finish saving project")
+        }
     }
 
     fun load(context: Context, id: String): LoadedProject {
-        val folder = File(root(context), id)
+        val folder = File(root(context), safeProjectId(id))
         val json = JSONObject(File(folder, "project.json").readText())
         val array = json.optJSONArray("scenes") ?: JSONArray()
         val scenes = (0 until array.length()).mapNotNull { i ->
@@ -93,7 +106,7 @@ object ProjectStore {
     }
 
     fun duplicate(context: Context, id: String): String {
-        val source = File(root(context), id)
+        val source = File(root(context), safeProjectId(id))
         val newId = "project_" + System.currentTimeMillis()
         val destination = File(root(context), newId)
         source.copyRecursively(destination, overwrite = false)
@@ -104,20 +117,37 @@ object ProjectStore {
     }
 
     fun rename(context: Context, id: String, name: String) {
-        val file = File(root(context), "$id/project.json")
+        val file = File(root(context), "${safeProjectId(id)}/project.json")
         val json = JSONObject(file.readText()).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
         file.writeText(json.toString())
     }
 
-    fun delete(context: Context, id: String) { File(root(context), id).deleteRecursively() }
+    fun delete(context: Context, id: String) {
+        val safeId = safeProjectId(id)
+        File(root(context), safeId).deleteRecursively()
+        val prefs = context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString("last_opened_project_id", null) == safeId) {
+            prefs.edit().remove("last_opened_project_id").apply()
+        }
+    }
 
     private fun copyUri(context: Context, uri: Uri, target: File) {
-        if (uri.scheme == "file") {
-            val source = File(uri.path ?: error("Missing file path"))
-            if (source.canonicalFile != target.canonicalFile) source.inputStream().use { input -> target.outputStream().use { input.copyTo(it) } }
-        } else {
-            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
-                ?: error("Cannot read selected file")
+        val temporary = File(target.parentFile, target.name + ".tmp")
+        temporary.delete()
+        try {
+            if (uri.scheme == "file") {
+                val source = File(uri.path ?: error("Missing file path"))
+                source.inputStream().use { input -> temporary.outputStream().use { output -> input.copyTo(output) } }
+            } else {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    temporary.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("Cannot read selected file")
+            }
+            if (target.exists() && !target.delete()) error("Cannot replace project asset")
+            if (!temporary.renameTo(target)) error("Cannot finish saving project asset")
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
         }
     }
 }
