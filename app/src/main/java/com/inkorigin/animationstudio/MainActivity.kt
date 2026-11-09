@@ -491,8 +491,15 @@ fun StudioApp() {
                                     TextButton(onClick = { openProject(project.id) }) { Text("Open") }
                                     TextButton(onClick = {
                                         scope.launch {
-                                            withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) }
-                                            savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                                            val result = runCatching {
+                                                withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) }
+                                            }
+                                            result.onSuccess {
+                                                savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                                                status = "Project duplicated with independent assets"
+                                            }.onFailure {
+                                                status = "Duplicate failed: " + (it.message ?: "Unknown error")
+                                            }
                                         }
                                     }) { Text("Duplicate") }
                                     TextButton(onClick = { projectPendingDelete = project }) {
