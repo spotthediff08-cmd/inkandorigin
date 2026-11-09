@@ -872,7 +872,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     ) {
         // Keep scene controls and preview tools fixed; only the scene list below scrolls.
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("EDIT YOUR STORY", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Scene library", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Arrange visuals, motion and timing.", color = Muted, fontSize = 12.sp) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Undo, null); Text("Undo") }
                 OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Redo, null); Text("Redo") }
@@ -1087,8 +1087,7 @@ fun SubtitlePage(
         parsing = false
     }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Subtitles", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(fileName, color = Muted)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("CAPTIONS & STYLE", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Subtitles", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text(fileName, color = Muted, fontSize = 12.sp, maxLines = 2) }
         Button(onClick = import, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import SRT file") }
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1145,7 +1144,7 @@ fun SubtitlePage(
 @Composable
 fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, frameRate: Int, setFrameRate:(Int)->Unit, transition: String, setTransition:(String)->Unit, exporting: Boolean, progress: Int, onCancel: () -> Unit, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Export video", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("FINAL OUTPUT", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Export video", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Review your settings before rendering.", color = Muted, fontSize = 12.sp) }
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("PROJECT CHECK", fontWeight = FontWeight.Bold)
@@ -1416,7 +1415,7 @@ fun StoryboardPage(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Storyboard Pro", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("IMAGE WORKFLOW", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Storyboard Pro", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Split contact sheets into individual scene images.", color = Muted, fontSize = 12.sp) }
         Text(
             "Split contact sheets into individual scene images.",
             color = Muted
