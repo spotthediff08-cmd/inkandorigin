@@ -298,7 +298,9 @@ private class SubtitleCanvasOverlay(
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xB8000000.toInt() }
 
     override fun onDraw(canvas: Canvas, presentationTimeUs: Long) {
-        val cue = cues.firstOrNull {
+        // Clear the previous frame's subtitle pixels so fast word changes never leave ghost text.
+        canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        val cue = cues.lastOrNull {
             presentationTimeUs / 1000 >= it.startMs && presentationTimeUs / 1000 < it.endMs
         } ?: return
         val h = canvas.height.toFloat()
