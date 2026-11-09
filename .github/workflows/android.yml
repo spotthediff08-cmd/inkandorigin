@@ -4,6 +4,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,6 +30,14 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/animationstudio.p12"
           test -s "$RUNNER_TEMP/animationstudio.p12"
 
+      - name: Read app version
+        id: version
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          test -n "$VERSION_NAME"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
         run: gradle assembleDebug
 
@@ -48,3 +59,13 @@ jobs:
           name: AnimationStudio-release-signed
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Publish or update GitHub Release automatically
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Animation Studio ${{ steps.version.outputs.tag }}
+          files: app/build/outputs/apk/release/app-release.apk
+          overwrite_files: true
+          generate_release_notes: true
+          make_latest: true
