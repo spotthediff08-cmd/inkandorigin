@@ -543,16 +543,8 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             "Alternate" -> if (currentIndex % 2 == 0) "Zoom In" else "Zoom Out"
             else -> currentScene.motion
         }
-        val scale = when (previewMotion) {
-            "Static" -> 1f
-            "Zoom In", "Auto Zoom" -> 1f + 0.12f * progress
-            "Zoom Out" -> 1.12f - 0.12f * progress
-            "Zoom In-Out" -> 1f + 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Zoom Out-In" -> 1.10f - 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.28f
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> 1.12f + 0.08f * progress
-            else -> 1.04f
-        }
+        // Keep the entire source image visible; zoom/pan would crop its edges.
+        val scale = 1f
         androidx.compose.ui.window.Dialog(onDismissRequest = { previewPlaying = false; showTimelinePreview = false }) {
             Surface(color = Panel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -568,17 +560,8 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
-                                translationX = when (previewMotion) {
-                                    "Pan Left" -> 8f - 16f * progress
-                                    "Pan Right" -> -8f + 16f * progress
-                                    "Ken Burns", "Cinematic", "Zoom+Pan" -> -6f + 12f * progress
-                                    else -> 0f
-                                }
-                                translationY = when (previewMotion) {
-                                    "Pan Up" -> 8f - 16f * progress
-                                    "Pan Down" -> -8f + 16f * progress
-                                    else -> 0f
-                                }
+                                translationX = 0f
+                                translationY = 0f
                             }
                         )
                         if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
