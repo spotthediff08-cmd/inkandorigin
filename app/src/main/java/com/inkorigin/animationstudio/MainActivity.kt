@@ -552,7 +552,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         Text("Timeline preview", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         IconButton(onClick = { previewPlaying = false; showTimelinePreview = false }) { Icon(Icons.Default.Close, "Close") }
                     }
-                    Box(Modifier.fillMaxWidth().height(if (aspectRatio == "9:16") 420.dp else 0.dp).then(if (aspectRatio == "9:16") Modifier else Modifier.aspectRatio(16f / 9f)).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().then(if (aspectRatio == "9:16") Modifier.height(420.dp) else Modifier.aspectRatio(16f / 9f)).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
                         Box(Modifier.then(if (aspectRatio == "9:16") Modifier.fillMaxHeight().aspectRatio(9f / 16f) else Modifier.fillMaxSize()), contentAlignment = Alignment.Center) {
                         AsyncImage(
                             model = currentScene.uri,
@@ -565,7 +565,6 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 translationY = 0f
                             }
                         )
-                        }
                         if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
                         Text(displaySceneLabel(currentScene.name), color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
                         activePreviewCue?.let { cue ->
@@ -577,6 +576,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 modifier = Modifier.align(subtitleAlignment).padding(10.dp)
                                     .then(if (subtitleBackground) Modifier.background(Color(0xCC000000), RoundedCornerShape(6.dp)) else Modifier)
                                     .padding(8.dp))
+                        }
                         }
                     }
                     Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
