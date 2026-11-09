@@ -38,7 +38,7 @@ import kotlin.math.sin
 data class ExportSettings(
     val resolution: String = "1080p",
     val aspectRatio: String = "16:9",
-    val subtitleFontSize: Int = 32,
+    val subtitleFontSize: Int = 64,
     val subtitleColor: String = "White",
     val subtitlePosition: String = "Bottom",
     val subtitleOutline: Boolean = true,
@@ -211,16 +211,17 @@ object VideoExportEngine {
                 "Zoom Out" -> 1.12f - 0.12f * progress
                 "Zoom In-Out" -> 1f + 0.10f * sin(progress * Math.PI).toFloat()
                 "Zoom Out-In" -> 1.10f - 0.10f * sin(progress * Math.PI).toFloat()
+                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
                 "Cinematic", "Ken Burns", "Zoom+Pan" -> 1f + 0.09f * progress
                 else -> 1.04f
             }
-            matrix.setScale(scale, scale, 0f, 0f)
+            matrix.setScale(scale, scale, 0.5f, 0.5f)
             when (actualMotion) {
-                "Pan Left" -> matrix.postTranslate(0.16f - 0.32f * progress, 0f)
-                "Pan Right" -> matrix.postTranslate(-0.16f + 0.32f * progress, 0f)
-                "Pan Up" -> matrix.postTranslate(0f, 0.16f - 0.32f * progress)
-                "Pan Down" -> matrix.postTranslate(0f, -0.16f + 0.32f * progress)
-                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.08f + 0.16f * progress, 0.04f - 0.08f * progress)
+                "Pan Left" -> matrix.postTranslate(0.06f - 0.12f * progress, 0f)
+                "Pan Right" -> matrix.postTranslate(-0.06f + 0.12f * progress, 0f)
+                "Pan Up" -> matrix.postTranslate(0f, 0.06f - 0.12f * progress)
+                "Pan Down" -> matrix.postTranslate(0f, -0.06f + 0.12f * progress)
+                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.04f + 0.08f * progress, 0.02f - 0.04f * progress)
                 else -> Unit
             }
             matrix
@@ -329,10 +330,6 @@ private class SubtitleCanvasOverlay(
                 w / 2f + widest / 2f + size * 0.35f, firstBaseline + blockHeight - lineHeight + size * 0.35f)
             canvas.drawRoundRect(rect, size * 0.18f, size * 0.18f, boxPaint)
         }
-        val elapsed = (presentationTimeUs / 1000 - cue.startMs).coerceAtLeast(0)
-        val cueDuration = (cue.endMs - cue.startMs).coerceAtLeast(1)
-        val activeWord = ((elapsed.toDouble() / cueDuration) * words.size).toInt().coerceIn(0, max(0, words.lastIndex))
-        var wordIndex = 0
         lines.forEachIndexed { lineIndex, line ->
             val y = firstBaseline + lineIndex * lineHeight
             var x = w / 2f - lineWidths[lineIndex] / 2f
@@ -340,14 +337,13 @@ private class SubtitleCanvasOverlay(
                 val wordWidth = fill.measureText(word)
                 val centerX = x + wordWidth / 2f
                 if (settings.subtitleOutline) canvas.drawText(word, centerX, y, stroke)
-                fill.color = if (wordIndex == activeWord) android.graphics.Color.YELLOW else when (settings.subtitleColor) {
+                fill.color = when (settings.subtitleColor) {
                     "Yellow" -> android.graphics.Color.YELLOW
                     "Cyan" -> android.graphics.Color.CYAN
                     else -> android.graphics.Color.WHITE
                 }
                 canvas.drawText(word, centerX, y, fill)
                 x += wordWidth + fill.measureText(" ")
-                wordIndex++
             }
         }
     }
