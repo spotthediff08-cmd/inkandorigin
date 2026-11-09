@@ -67,10 +67,12 @@ object ProjectStore {
             Scene(Uri.fromFile(file), item.optString("name", file.name), item.optDouble("duration", 4.0).toFloat(), item.optString("motion", "Cinematic"))
         }
         val audioPath = json.optString("audioPath", "")
+        val savedSubtitleFontSize = json.optInt("subtitleFontSize", 64)
+        val migratedSubtitleFontSize = if (savedSubtitleFontSize == 32) 64 else savedSubtitleFontSize
         return LoadedProject(id, json.optString("name", "Untitled Project"), scenes,
             if (audioPath.isNotBlank() && File(audioPath).isFile) Uri.fromFile(File(audioPath)) else null,
             json.optString("srtText", ""), json.optString("wordSrtText", ""), json.optString("resolution", "1080p"), json.optString("aspectRatio", "16:9"), json.optString("globalMotion", "Cinematic"),
-            json.optInt("subtitleFontSize", 32), json.optString("subtitleColor", "White"), json.optString("subtitlePosition", "Bottom"),
+            migratedSubtitleFontSize, json.optString("subtitleColor", "White"), json.optString("subtitlePosition", "Bottom"),
             json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false), json.optInt("frameRate", 30), json.optString("transition", "Fade through black"))
     }
 
