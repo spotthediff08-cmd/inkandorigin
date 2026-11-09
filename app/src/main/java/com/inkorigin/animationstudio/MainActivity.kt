@@ -568,24 +568,24 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         }
         // Subtle Ken Burns movement: visible motion with restrained zoom.
         val scale = when (previewMotion) {
-            "Static" -> 1f
-            "Zoom In", "Auto Zoom" -> 1f + 0.06f * progress
-            "Zoom Out" -> 1.06f - 0.06f * progress
-            "Zoom In-Out" -> 1f + 0.045f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Zoom Out-In" -> 1.045f - 0.045f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.06f
-            else -> 1.03f + 0.04f * progress
+            "Static" -> 1.04f
+            "Zoom In", "Auto Zoom" -> 1.04f + 0.12f * progress
+            "Zoom Out" -> 1.16f - 0.12f * progress
+            "Zoom In-Out" -> 1.04f + 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
+            "Zoom Out-In" -> 1.16f - 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
+            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
+            else -> 1.06f + 0.10f * progress
         }
         val panX = when (previewMotion) {
-            "Pan Left" -> 0.025f - 0.05f * progress
-            "Pan Right" -> -0.025f + 0.05f * progress
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> -0.012f + 0.024f * progress
+            "Pan Left" -> 0.04f - 0.08f * progress
+            "Pan Right" -> -0.04f + 0.08f * progress
+            "Cinematic", "Ken Burns", "Zoom+Pan" -> -0.025f + 0.05f * progress
             else -> 0f
         }
         val panY = when (previewMotion) {
-            "Pan Up" -> 0.025f - 0.05f * progress
-            "Pan Down" -> -0.025f + 0.05f * progress
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> 0.006f - 0.012f * progress
+            "Pan Up" -> 0.04f - 0.08f * progress
+            "Pan Down" -> -0.04f + 0.08f * progress
+            "Cinematic", "Ken Burns", "Zoom+Pan" -> 0.012f - 0.024f * progress
             else -> 0f
         }
         androidx.compose.ui.window.Dialog(onDismissRequest = { previewPlaying = false; showTimelinePreview = false }) {
@@ -600,7 +600,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         AsyncImage(
                             model = currentScene.uri,
                             contentDescription = displaySceneLabel(currentScene.name),
-                            contentScale = ContentScale.Fit,
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
