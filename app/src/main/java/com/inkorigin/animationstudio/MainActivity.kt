@@ -149,6 +149,7 @@ fun StudioApp() {
     var projectId by remember { mutableStateOf("project_" + System.currentTimeMillis()) }
     var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
     var showProjects by remember { mutableStateOf(false) }
+    var projectPendingDelete by remember { mutableStateOf<ProjectSummary?>(null) }
     var lastProjectId by remember { mutableStateOf<String?>(null) }
     var sceneToReplace by remember { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
@@ -160,6 +161,33 @@ fun StudioApp() {
     var updateApkUrl by remember { mutableStateOf<String?>(null) }
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     var downloadingUpdate by remember { mutableStateOf(false) }
+
+    fun createNewProject() {
+        projectId = "project_" + System.currentTimeMillis()
+        lastProjectId = projectId
+        ProjectStore.markOpened(context, projectId)
+        projectName = "Untitled Project"
+        scenes = emptyList()
+        sceneUndo = emptyList()
+        sceneRedo = emptyList()
+        audio = null
+        srtText = ""
+        srtName = "No timeline SRT selected"
+        wordSrtText = ""
+        wordSrtName = "No word-level SRT selected"
+        resolution = "1080p"
+        globalMotion = "Cinematic"
+        aspectRatio = "16:9"
+        frameRate = 30
+        transition = "None"
+        subtitleFontSize = 64
+        subtitleColor = "White"
+        subtitlePosition = "Bottom"
+        subtitleOutline = true
+        subtitleBackground = false
+        status = "New project created"
+        tab = "Home"
+    }
 
     LaunchedEffect(Unit) {
         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
@@ -458,12 +486,9 @@ fun StudioApp() {
                                             savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
                                         }
                                     }) { Text("Duplicate") }
-                                    TextButton(onClick = {
-                                        scope.launch {
-                                            withContext(Dispatchers.IO) { ProjectStore.delete(context, project.id) }
-                                            savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
-                                        }
-                                    }) { Text("Delete", color = Color(0xFFFF7777)) }
+                                    TextButton(onClick = { projectPendingDelete = project }) {
+                                        Text("Delete", color = Color(0xFFFF7777))
+                                    }
                                 }
                             }
                         }
@@ -473,21 +498,37 @@ fun StudioApp() {
             confirmButton = { TextButton(onClick = { showProjects = false }) { Text("Close") } },
             dismissButton = {
                 TextButton(onClick = {
-                    projectId = "project_" + System.currentTimeMillis()
-                    lastProjectId = projectId
-                    ProjectStore.markOpened(context, projectId)
-                    projectName = "Untitled Project"
-                    scenes = emptyList()
-                    sceneUndo = emptyList()
-                    sceneRedo = emptyList()
-                    audio = null
-                    srtText = ""
-                    srtName = "No timeline SRT selected"
-                    wordSrtText = ""
-                    wordSrtName = "No word-level SRT selected"
-                    status = "New project created"
+                    createNewProject()
                     showProjects = false
                 }) { Text("New project") }
+            }
+        )
+    }
+
+    projectPendingDelete?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { projectPendingDelete = null },
+            title = { Text("Delete project?") },
+            text = {
+                Text(if (pending.id == projectId) {
+                    "${pending.name} is currently open. Deleting it will start a new blank project. This cannot be undone."
+                } else {
+                    "Delete ${pending.name}? This cannot be undone."
+                })
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    projectPendingDelete = null
+                    scope.launch {
+                        withContext(Dispatchers.IO) { ProjectStore.delete(context, pending.id) }
+                        if (pending.id == projectId) createNewProject()
+                        lastProjectId = withContext(Dispatchers.IO) { ProjectStore.lastOpenedId(context) }
+                        savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                    }
+                }) { Text("Delete", color = Color(0xFFFF7777)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { projectPendingDelete = null }) { Text("Cancel") }
             }
         )
     }
