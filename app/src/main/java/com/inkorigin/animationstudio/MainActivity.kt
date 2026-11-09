@@ -792,9 +792,12 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             Text(displaySceneLabel(scene.name), fontWeight = FontWeight.SemiBold, maxLines = 1)
                             Text("${scene.duration} sec • ${scene.motion}", color = Muted, fontSize = 12.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { update(scenes.mapIndexed { index, item -> if (index == sceneIndex) item.copy(duration = (item.duration - 0.5f).coerceAtLeast(0.5f)) else item }) }) { Icon(Icons.Default.Remove, "Shorter") }
-                                IconButton(onClick = { update(scenes.mapIndexed { index, item -> if (index == sceneIndex) item.copy(duration = (item.duration + 0.5f).coerceAtMost(60f)) else item }) }) { Icon(Icons.Default.Add, "Longer") }
-                                var motionExpanded by remember(scene.uri) { mutableStateOf(false) }
+                                Text(
+                                    if (previewCues.isNotEmpty()) "SRT auto timing" else "Default timing • import SRT for auto timing",
+                                    color = Muted,
+                                    fontSize = 10.sp
+                                )
+                                var motionExpanded by remember(scene.id) { mutableStateOf(false) }
                                 Box {
                                     TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
                                     DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
