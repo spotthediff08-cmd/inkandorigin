@@ -53,6 +53,7 @@ object ProjectStore {
         }
     }
 
+    @Synchronized
     fun list(context: Context): List<ProjectSummary> =
         root(context).listFiles()?.filter { File(it, "project.json").isFile }?.mapNotNull { folder ->
             runCatching {
@@ -61,6 +62,7 @@ object ProjectStore {
             }.getOrNull()
         }?.sortedByDescending { it.updatedAt } ?: emptyList()
 
+    @Synchronized
     fun save(
         context: Context, id: String, name: String, scenes: List<Scene>, audio: Uri?, srtText: String, wordSrtText: String,
         resolution: String, aspectRatio: String, globalMotion: String, subtitleFontSize: Int,
@@ -100,6 +102,7 @@ object ProjectStore {
         }
     }
 
+    @Synchronized
     fun load(context: Context, id: String): LoadedProject {
         val folder = File(root(context), safeProjectId(id))
         val json = JSONObject(File(folder, "project.json").readText())
@@ -120,6 +123,7 @@ object ProjectStore {
             json.optBoolean("subtitleOutline", true), json.optBoolean("subtitleBackground", false), json.optInt("frameRate", 30), json.optString("transition", "Fade through black"))
     }
 
+    @Synchronized
     fun duplicate(context: Context, id: String): String {
         val source = File(root(context), safeProjectId(id))
         require(File(source, "project.json").isFile) { "Project not found" }
@@ -176,12 +180,14 @@ object ProjectStore {
         }
     }
 
+    @Synchronized
     fun rename(context: Context, id: String, name: String) {
         val file = File(root(context), "${safeProjectId(id)}/project.json")
         val json = JSONObject(file.readText()).put("name", name.ifBlank { "Untitled Project" }).put("updatedAt", System.currentTimeMillis())
         file.writeText(json.toString())
     }
 
+    @Synchronized
     fun delete(context: Context, id: String) {
         val safeId = safeProjectId(id)
         File(root(context), safeId).deleteRecursively()
