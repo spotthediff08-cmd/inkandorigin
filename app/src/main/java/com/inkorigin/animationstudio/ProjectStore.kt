@@ -6,6 +6,9 @@ import android.webkit.MimeTypeMap
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 data class ProjectSummary(val id: String, val name: String, val updatedAt: Long, val sceneCount: Int)
 data class LoadedProject(
@@ -19,6 +22,17 @@ object ProjectStore {
     private fun root(context: Context) = File(context.filesDir, "projects").apply { mkdirs() }
 
     private const val STATE_PREFS = "animation_studio_project_state"
+
+    private fun replaceFile(temporary: File, target: File) {
+        try {
+            Files.move(
+                temporary.toPath(), target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
 
     private fun safeProjectId(id: String): String {
         require(id.matches(Regex("project_[0-9]+"))) { "Invalid project ID" }
@@ -78,10 +92,11 @@ object ProjectStore {
         val projectFile = File(folder, "project.json")
         val temporaryProjectFile = File(folder, "project.json.tmp")
         temporaryProjectFile.writeText(json.toString())
-        if (projectFile.exists() && !projectFile.delete()) error("Cannot replace saved project")
-        if (!temporaryProjectFile.renameTo(projectFile)) {
+        try {
+            replaceFile(temporaryProjectFile, projectFile)
+        } catch (error: Exception) {
             temporaryProjectFile.delete()
-            error("Cannot finish saving project")
+            throw error
         }
     }
 
@@ -143,8 +158,7 @@ object ProjectStore {
                     temporary.outputStream().use { output -> input.copyTo(output) }
                 } ?: error("Cannot read selected file")
             }
-            if (target.exists() && !target.delete()) error("Cannot replace project asset")
-            if (!temporary.renameTo(target)) error("Cannot finish saving project asset")
+            replaceFile(temporary, target)
         } catch (error: Exception) {
             temporary.delete()
             throw error
