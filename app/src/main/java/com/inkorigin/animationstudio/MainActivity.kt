@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -728,7 +729,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             if (scenes.isEmpty()) {
                 item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
             }
-            items(scenes) { scene ->
+            itemsIndexed(scenes) { sceneIndex, scene ->
                 Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
@@ -755,7 +756,6 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             TextButton(onClick = { replace(sceneIndex, scene) }) { Text("Replace image") }
                         }
                         Column {
-                            val sceneIndex = scenes.indexOf(scene)
                             IconButton(onClick = { if (sceneIndex > 0) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex - 1, moving) }) }, enabled = sceneIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
                             IconButton(onClick = { if (sceneIndex < scenes.lastIndex) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex + 1, moving) }) }, enabled = sceneIndex < scenes.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
                             IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
