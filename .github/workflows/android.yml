@@ -3,6 +3,12 @@ on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a GitHub Release after the build (leave off for testing)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -60,7 +66,8 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
-      - name: Publish or update GitHub Release automatically
+      - name: Publish or update GitHub Release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
