@@ -165,31 +165,69 @@ fun StudioApp() {
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     var downloadingUpdate by remember { mutableStateOf(false) }
 
-    fun createNewProject() {
-        projectId = "project_" + System.currentTimeMillis()
-        lastProjectId = projectId
-        ProjectStore.markOpened(context, projectId)
-        projectName = "Untitled Project"
-        scenes = emptyList()
-        sceneUndo = emptyList()
-        sceneRedo = emptyList()
-        audio = null
-        srtText = ""
-        srtName = "No timeline SRT selected"
-        wordSrtText = ""
-        wordSrtName = "No word-level SRT selected"
-        resolution = "1080p"
-        globalMotion = "Cinematic"
-        aspectRatio = "16:9"
-        frameRate = 30
-        transition = "None"
-        subtitleFontSize = 64
-        subtitleColor = "White"
-        subtitlePosition = "Bottom"
-        subtitleOutline = true
-        subtitleBackground = false
-        status = "New project created"
-        tab = "Home"
+    suspend fun saveCurrentProjectIfNeeded() {
+        val alreadySaved = savedProjects.any { it.id == projectId }
+        val hasWork = scenes.isNotEmpty() || audio != null || srtText.isNotBlank() ||
+            wordSrtText.isNotBlank() || projectName != "Untitled Project"
+        if (!alreadySaved && !hasWork) return
+
+        val id = projectId
+        val name = projectName
+        val sceneSnapshot = scenes.toList()
+        val audioSnapshot = audio
+        val timelineSrtSnapshot = srtText
+        val wordSrtSnapshot = wordSrtText
+        val resolutionSnapshot = resolution
+        val aspectRatioSnapshot = aspectRatio
+        val motionSnapshot = globalMotion
+        val fontSizeSnapshot = subtitleFontSize
+        val colorSnapshot = subtitleColor
+        val positionSnapshot = subtitlePosition
+        val outlineSnapshot = subtitleOutline
+        val backgroundSnapshot = subtitleBackground
+        val frameRateSnapshot = frameRate
+        val transitionSnapshot = transition
+
+        withContext(Dispatchers.IO) {
+            ProjectStore.save(context, id, name, sceneSnapshot, audioSnapshot, timelineSrtSnapshot, wordSrtSnapshot,
+                resolutionSnapshot, aspectRatioSnapshot, motionSnapshot, fontSizeSnapshot, colorSnapshot,
+                positionSnapshot, outlineSnapshot, backgroundSnapshot, frameRateSnapshot, transitionSnapshot)
+        }
+    }
+
+    fun createNewProject(saveCurrent: Boolean = true) {
+        scope.launch {
+            if (saveCurrent) {
+                runCatching { saveCurrentProjectIfNeeded() }.onFailure {
+                    status = "Could not save current project: " + (it.message ?: "Unknown error")
+                    return@launch
+                }
+            }
+            projectId = "project_" + System.currentTimeMillis()
+            lastProjectId = projectId
+            ProjectStore.markOpened(context, projectId)
+            projectName = "Untitled Project"
+            scenes = emptyList()
+            sceneUndo = emptyList()
+            sceneRedo = emptyList()
+            audio = null
+            srtText = ""
+            srtName = "No timeline SRT selected"
+            wordSrtText = ""
+            wordSrtName = "No word-level SRT selected"
+            resolution = "1080p"
+            globalMotion = "Cinematic"
+            aspectRatio = "16:9"
+            frameRate = 30
+            transition = "None"
+            subtitleFontSize = 64
+            subtitleColor = "White"
+            subtitlePosition = "Bottom"
+            subtitleOutline = true
+            subtitleBackground = false
+            status = "New project created"
+            tab = "Home"
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -201,6 +239,7 @@ fun StudioApp() {
     fun openProject(id: String) {
         scope.launch {
             runCatching {
+                if (id != projectId) saveCurrentProjectIfNeeded()
                 val loaded = withContext(Dispatchers.IO) { ProjectStore.load(context, id) }
                 withContext(Dispatchers.IO) { ProjectStore.markOpened(context, loaded.id) }
                 projectId = loaded.id
@@ -537,7 +576,7 @@ fun StudioApp() {
                     projectPendingDelete = null
                     scope.launch {
                         withContext(Dispatchers.IO) { ProjectStore.delete(context, pending.id) }
-                        if (pending.id == projectId) createNewProject()
+                        if (pending.id == projectId) createNewProject(saveCurrent = false)
                         lastProjectId = withContext(Dispatchers.IO) { ProjectStore.lastOpenedId(context) }
                         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
                     }
