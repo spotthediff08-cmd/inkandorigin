@@ -738,15 +738,15 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             Text(displaySceneLabel(scene.name), fontWeight = FontWeight.SemiBold, maxLines = 1)
                             Text("${scene.duration} sec • ${scene.motion}", color = Muted, fontSize = 12.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration - 0.5f).coerceAtLeast(0.5f)) else it }) }) { Icon(Icons.Default.Remove, "Shorter") }
-                                IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration + 0.5f).coerceAtMost(60f)) else it }) }) { Icon(Icons.Default.Add, "Longer") }
+                                IconButton(onClick = { update(scenes.mapIndexed { index, item -> if (index == sceneIndex) item.copy(duration = (item.duration - 0.5f).coerceAtLeast(0.5f)) else item }) }) { Icon(Icons.Default.Remove, "Shorter") }
+                                IconButton(onClick = { update(scenes.mapIndexed { index, item -> if (index == sceneIndex) item.copy(duration = (item.duration + 0.5f).coerceAtMost(60f)) else item }) }) { Icon(Icons.Default.Add, "Longer") }
                                 var motionExpanded by remember(scene.uri) { mutableStateOf(false) }
                                 Box {
                                     TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
                                     DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
                                         listOf("Static", "Auto Zoom", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
                                             DropdownMenuItem(text = { Text(motion) }, onClick = {
-                                                update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
+                                                update(scenes.mapIndexed { index, item -> if (index == sceneIndex) item.copy(motion = motion) else item })
                                                 motionExpanded = false
                                             })
                                         }
@@ -758,7 +758,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         Column {
                             IconButton(onClick = { if (sceneIndex > 0) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex - 1, moving) }) }, enabled = sceneIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
                             IconButton(onClick = { if (sceneIndex < scenes.lastIndex) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex + 1, moving) }) }, enabled = sceneIndex < scenes.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
-                            IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
+                            IconButton(onClick = { update(scenes.filterIndexed { index, _ -> index != sceneIndex }) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
                         }
                     }
                 }
