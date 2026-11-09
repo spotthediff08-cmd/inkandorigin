@@ -149,6 +149,8 @@ fun StudioApp() {
     var projectId by remember { mutableStateOf("project_" + System.currentTimeMillis()) }
     var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
     var showProjects by remember { mutableStateOf(false) }
+    var lastProjectId by remember { mutableStateOf<String?>(null) }
+    var sceneToReplace by remember { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableIntStateOf(0) }
     var exportStatus by remember { mutableStateOf("Ready to export") }
@@ -161,7 +163,41 @@ fun StudioApp() {
 
     LaunchedEffect(Unit) {
         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+        lastProjectId = withContext(Dispatchers.IO) { ProjectStore.lastOpenedId(context) }
         exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) }
+    }
+
+    fun openProject(id: String) {
+        scope.launch {
+            runCatching {
+                val loaded = withContext(Dispatchers.IO) { ProjectStore.load(context, id) }
+                withContext(Dispatchers.IO) { ProjectStore.markOpened(context, loaded.id) }
+                projectId = loaded.id
+                lastProjectId = loaded.id
+                projectName = loaded.name
+                scenes = loaded.scenes
+                sceneUndo = emptyList()
+                sceneRedo = emptyList()
+                audio = loaded.audio
+                srtText = loaded.srtText
+                srtName = if (loaded.srtText.isNotBlank()) "Timeline SRT saved" else "No timeline SRT selected"
+                wordSrtText = loaded.wordSrtText
+                wordSrtName = if (loaded.wordSrtText.isNotBlank()) "Word-level SRT saved" else "No word-level SRT selected"
+                resolution = loaded.resolution
+                aspectRatio = if (loaded.aspectRatio == "9:16") "9:16" else "16:9"
+                globalMotion = loaded.globalMotion
+                subtitleFontSize = loaded.subtitleFontSize
+                subtitleColor = loaded.subtitleColor
+                subtitlePosition = loaded.subtitlePosition
+                subtitleOutline = loaded.subtitleOutline
+                subtitleBackground = loaded.subtitleBackground
+                frameRate = loaded.frameRate
+                transition = loaded.transition
+                status = "Project opened • ready to continue editing"
+                showProjects = false
+                tab = "Home"
+            }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
+        }
     }
     LaunchedEffect(exporting) {
         while (exporting) {
@@ -204,6 +240,19 @@ fun StudioApp() {
                 "${importedScenes.size} images imported • SRT has $cueCount cues for ${combined.size} images; matched in order"
             } else "${importedScenes.size} images imported"
         }
+    }
+
+    val replaceImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val target = sceneToReplace
+        if (uri != null && target != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val replacementName = uri.lastPathSegment?.substringAfterLast('/') ?: "Scene"
+            updateScenes(scenes.map { scene ->
+                if (scene.uri.toString() == target) scene.copy(uri = uri, name = replacementName) else scene
+            })
+            status = "Scene image replaced"
+        }
+        sceneToReplace = null
     }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; audio = uri; status = "Voiceover selected" }
@@ -289,7 +338,7 @@ fun StudioApp() {
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
+                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, lastProjectId != null, { lastProjectId?.let { openProject(it) } }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
                     downloadingUpdate = true
                     downloadedApkUri = null
                     updateMessage = "Starting update download…"
@@ -365,7 +414,7 @@ fun StudioApp() {
                         downloadingUpdate = false
                     }
                 } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
-                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
+                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { scene -> sceneToReplace = scene.uri.toString(); replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.fillMaxSize(), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -398,35 +447,7 @@ fun StudioApp() {
                                 Text(project.name, fontWeight = FontWeight.Bold)
                                 Text(project.sceneCount.toString() + " scenes", color = Muted, fontSize = 12.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(onClick = {
-                                        scope.launch {
-                                            runCatching {
-                                                val loaded = withContext(Dispatchers.IO) { ProjectStore.load(context, project.id) }
-                                                projectId = loaded.id
-                                                projectName = loaded.name
-                                                scenes = loaded.scenes
-                                                sceneUndo = emptyList()
-                                                sceneRedo = emptyList()
-                                                audio = loaded.audio
-                                                srtText = loaded.srtText
-                                                srtName = if (loaded.srtText.isNotBlank()) "Timeline SRT saved" else "No timeline SRT selected"
-                                                wordSrtText = loaded.wordSrtText
-                                                wordSrtName = if (loaded.wordSrtText.isNotBlank()) "Word-level SRT saved" else "No word-level SRT selected"
-                                                resolution = loaded.resolution
-                                                aspectRatio = if (loaded.aspectRatio == "9:16") "9:16" else "16:9"
-                                                globalMotion = loaded.globalMotion
-                                                subtitleFontSize = loaded.subtitleFontSize
-                                                subtitleColor = loaded.subtitleColor
-                                                subtitlePosition = loaded.subtitlePosition
-                                                subtitleOutline = loaded.subtitleOutline
-                                                subtitleBackground = loaded.subtitleBackground
-                                                frameRate = loaded.frameRate
-                                                transition = loaded.transition
-                                                status = "Project opened"
-                                                showProjects = false
-                                            }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
-                                        }
-                                    }) { Text("Open") }
+                                    TextButton(onClick = { openProject(project.id) }) { Text("Open") }
                                     TextButton(onClick = {
                                         scope.launch {
                                             withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) }
@@ -449,6 +470,8 @@ fun StudioApp() {
             dismissButton = {
                 TextButton(onClick = {
                     projectId = "project_" + System.currentTimeMillis()
+                    lastProjectId = projectId
+                    ProjectStore.markOpened(context, projectId)
                     projectName = "Untitled Project"
                     scenes = emptyList()
                     sceneUndo = emptyList()
@@ -467,7 +490,7 @@ fun StudioApp() {
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, hasLastProject: Boolean, resumeLastProject:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 23.sp, fontWeight = FontWeight.Bold)
@@ -506,6 +529,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             }
         }
         item { OutlinedButton(onClick = openProjects, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Open / Manage Saved Projects") } }
+        if (hasLastProject) item { Button(onClick = resumeLastProject, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Continue Last Project") } }
         item { SectionTitle("IMPORT YOUR ASSETS") }
         item { ActionCard("Import image folder", "$count images • Select your storyboard images folder", Icons.Default.Folder, addFolder) }
         item { ActionCard("Voiceover", if(hasAudio) "Audio file selected" else "Choose narration audio", Icons.Default.Mic, addAudio) }
@@ -523,7 +547,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
@@ -683,6 +707,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                     }
                                 }
                             }
+                            TextButton(onClick = { replace(scene) }) { Text("Replace image") }
                         }
                         Column {
                             val sceneIndex = scenes.indexOf(scene)
