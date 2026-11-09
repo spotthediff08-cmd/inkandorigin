@@ -208,7 +208,11 @@ fun StudioApp() {
     LaunchedEffect(projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) {
         delay(900)
         runCatching {
-            withContext(Dispatchers.IO) { ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) }
+            withContext(Dispatchers.IO) {
+                ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition)
+                ProjectStore.markOpened(context, projectId)
+            }
+            lastProjectId = projectId
             savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
         }.onFailure { status = "Autosave error: " + (it.message ?: "Unknown error") }
     }
