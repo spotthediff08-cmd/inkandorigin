@@ -191,7 +191,6 @@ object VideoExportEngine {
         }
         return when (aspectRatio) {
             "9:16" -> Pair(shortSide, shortSide * 16 / 9)
-            "1:1" -> Pair(shortSide, shortSide)
             else -> Pair(shortSide * 16 / 9, shortSide)
         }
     }
