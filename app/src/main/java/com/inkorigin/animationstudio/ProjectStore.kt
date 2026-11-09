@@ -76,7 +76,7 @@ object ProjectStore {
             val extension = namedExtension.takeIf { it.length in 2..5 } ?: mimeExtension ?: "jpg"
             val target = File(assets, "scene_%04d.%s".format(index + 1, extension))
             copyUri(context, scene.uri, target)
-            sceneArray.put(JSONObject().put("path", target.absolutePath).put("name", scene.name).put("duration", scene.duration.toDouble()).put("motion", scene.motion))
+            sceneArray.put(JSONObject().put("path", target.absolutePath).put("name", scene.name).put("duration", scene.duration.toDouble()).put("motion", scene.motion).put("sceneId", scene.id))
         }
         val audioTarget = audio?.let { uri ->
             val namedExtension = (uri.lastPathSegment ?: "").substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }
@@ -108,7 +108,7 @@ object ProjectStore {
             val item = array.optJSONObject(i) ?: return@mapNotNull null
             val file = File(item.optString("path"))
             if (!file.isFile) return@mapNotNull null
-            Scene(Uri.fromFile(file), item.optString("name", file.name), item.optDouble("duration", 4.0).toFloat(), item.optString("motion", "Cinematic"))
+            Scene(Uri.fromFile(file), item.optString("name", file.name), item.optDouble("duration", 4.0).toFloat(), item.optString("motion", "Cinematic"), item.optString("sceneId").takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString())
         }
         val audioPath = json.optString("audioPath", "")
         val savedSubtitleFontSize = json.optInt("subtitleFontSize", 64)
