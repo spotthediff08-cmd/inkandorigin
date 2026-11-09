@@ -23,12 +23,12 @@ object ProjectStore {
     fun lastOpenedId(context: Context): String? {
         val id = context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE)
             .getString("last_opened_project_id", null) ?: return null
-        if (!id.startsWith("project_") || id.contains('/') || id.contains('\\\\')) return null
+        if (!id.startsWith("project_") || id.contains('/') || id.contains('\\')) return null
         return id.takeIf { File(root(context), "$it/project.json").isFile }
     }
 
     fun markOpened(context: Context, id: String) {
-        if (id.startsWith("project_") && !id.contains('/') && !id.contains('\\\\')) {
+        if (id.startsWith("project_") && !id.contains('/') && !id.contains('\\')) {
             context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE)
                 .edit().putString("last_opened_project_id", id).apply()
         }
