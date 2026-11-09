@@ -216,11 +216,24 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Panel) {
-                    listOf("Home", "Scenes", "Storyboard", "Subtitles", "Export").forEach { item ->
+                    listOf("Home", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
+                        val destination = if (item == "Board") "Storyboard" else item
                         NavigationBarItem(
-                            selected = tab == item, onClick = { tab = item },
-                            icon = { Icon(when(item) { "Scenes" -> Icons.Default.Collections; "Subtitles" -> Icons.Default.Subtitles; "Export" -> Icons.Default.Movie; else -> Icons.Default.Home }, null) },
-                            label = { Text(item) }
+                            selected = tab == destination,
+                            onClick = { tab = destination },
+                            icon = {
+                                Icon(
+                                    when (item) {
+                                        "Scenes" -> Icons.Default.Collections
+                                        "Board" -> Icons.Default.Folder
+                                        "Subtitles" -> Icons.Default.Subtitles
+                                        "Export" -> Icons.Default.Movie
+                                        else -> Icons.Default.Home
+                                    },
+                                    contentDescription = item
+                                )
+                            },
+                            label = { Text(item, maxLines = 1, softWrap = false, fontSize = 10.sp) }
                         )
                     }
                 }
@@ -332,9 +345,9 @@ fun StudioApp() {
 
 @Composable
 fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
-    LazyColumn(modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("Your next story starts here.", fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text("Your next story starts here.", fontSize = 23.sp, fontWeight = FontWeight.Bold)
             Text("Build a video from scenes, voice and subtitles.", color = Muted)
         }
         item {
