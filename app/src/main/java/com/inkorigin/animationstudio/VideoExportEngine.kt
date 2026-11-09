@@ -133,7 +133,7 @@ object VideoExportEngine {
         }
         val videoEffects = mutableListOf<androidx.media3.common.Effect>()
         videoEffects += Presentation.createForWidthAndHeight(
-            widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
+            widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT
         )
         val overlays = mutableListOf<androidx.media3.effect.TextureOverlay>()
         if (settings.transition == "Fade through black" && sceneBoundariesMs.isNotEmpty()) {
