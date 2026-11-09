@@ -211,17 +211,17 @@ object VideoExportEngine {
                 "Zoom Out" -> 1.12f - 0.12f * progress
                 "Zoom In-Out" -> 1f + 0.10f * sin(progress * Math.PI).toFloat()
                 "Zoom Out-In" -> 1.10f - 0.10f * sin(progress * Math.PI).toFloat()
-                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
-                "Cinematic", "Ken Burns", "Zoom+Pan" -> 1f + 0.09f * progress
+                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.28f
+                "Cinematic", "Ken Burns", "Zoom+Pan" -> 1.12f + 0.08f * progress
                 else -> 1.04f
             }
             matrix.setScale(scale, scale, 0.5f, 0.5f)
             when (actualMotion) {
-                "Pan Left" -> matrix.postTranslate(0.06f - 0.12f * progress, 0f)
-                "Pan Right" -> matrix.postTranslate(-0.06f + 0.12f * progress, 0f)
-                "Pan Up" -> matrix.postTranslate(0f, 0.06f - 0.12f * progress)
-                "Pan Down" -> matrix.postTranslate(0f, -0.06f + 0.12f * progress)
-                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.04f + 0.08f * progress, 0.02f - 0.04f * progress)
+                "Pan Left" -> matrix.postTranslate(0.025f - 0.05f * progress, 0f)
+                "Pan Right" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0f)
+                "Pan Up" -> matrix.postTranslate(0f, 0.025f - 0.05f * progress)
+                "Pan Down" -> matrix.postTranslate(0f, -0.025f + 0.05f * progress)
+                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0.0125f - 0.025f * progress)
                 else -> Unit
             }
             matrix
