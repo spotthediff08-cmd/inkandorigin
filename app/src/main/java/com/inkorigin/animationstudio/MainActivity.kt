@@ -560,11 +560,11 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         Text("Timeline preview", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         IconButton(onClick = { previewPlaying = false; showTimelinePreview = false }) { Icon(Icons.Default.Close, "Close") }
                     }
-                    Box(Modifier.fillMaxWidth().height(230.dp).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
                         AsyncImage(
                             model = currentScene.uri,
                             contentDescription = displaySceneLabel(currentScene.name),
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
