@@ -289,7 +289,82 @@ fun StudioApp() {
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch { downloadingUpdate = true; downloadedApkUri = null; updateMessage = "Starting update download…"; try { val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager; val request = DownloadManager.Request(Uri.parse(url)).setTitle("Animation Studio update").setDescription("Downloading app update").setMimeType("application/vnd.android.package-archive").setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "AnimationStudio-update.apk"); val id = dm.enqueue(request); var finished = false; while (!finished) { val cursor = dm.query(DownloadManager.Query().setFilterById(id)); val downloadStatus = cursor.use { if (it.moveToFirst()) it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) else -1 }; when (downloadStatus) { DownloadManager.STATUS_SUCCESSFUL -> { downloadedApkUri = dm.getUriForDownloadedFile(id); updateMessage = if (downloadedApkUri != null) "Update downloaded. Tap Install Update to continue." else "Download finished, but the APK could not be opened."; finished = true }; DownloadManager.STATUS_FAILED -> { updateMessage = "Update download failed. Please try again."; finished = true }; else -> { updateMessage = "Downloading update…"; delay(800) } } } } catch (e: Exception) { updateMessage = "Download error: ${e.message ?: "Please try again."}" } finally { downloadingUpdate = false } } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
+                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
+                    downloadingUpdate = true
+                    downloadedApkUri = null
+                    updateMessage = "Starting update download…"
+                    try {
+                        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val request = DownloadManager.Request(Uri.parse(url))
+                            .setTitle("Animation Studio update")
+                            .setDescription("Downloading app update")
+                            .setMimeType("application/vnd.android.package-archive")
+                            .setAllowedOverMetered(true)
+                            .setAllowedOverRoaming(true)
+                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "AnimationStudio-update.apk")
+                        val id = dm.enqueue(request)
+                        val startedAt = System.currentTimeMillis()
+                        var finished = false
+                        while (!finished) {
+                            var downloadStatus = -1
+                            var reason = 0
+                            var downloadedBytes = 0L
+                            var totalBytes = 0L
+                            dm.query(DownloadManager.Query().setFilterById(id)).use { cursor ->
+                                if (cursor.moveToFirst()) {
+                                    downloadStatus = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                                    reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                                    downloadedBytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                                    totalBytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                                }
+                            }
+                            when (downloadStatus) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    downloadedApkUri = dm.getUriForDownloadedFile(id)
+                                    updateMessage = if (downloadedApkUri != null) "Update downloaded. Tap Install Update to continue." else "Download finished, but the APK could not be opened."
+                                    finished = true
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    updateMessage = "Download failed (Android error $reason). Tap Download Update to retry."
+                                    finished = true
+                                }
+                                DownloadManager.STATUS_PAUSED -> {
+                                    updateMessage = when (reason) {
+                                        DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "Download paused: waiting for internet connection…"
+                                        DownloadManager.PAUSED_WAITING_TO_RETRY -> "Download paused: Android will retry shortly…"
+                                        DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "Download paused: waiting for Wi-Fi…"
+                                        DownloadManager.PAUSED_UNKNOWN -> "Download paused by Android (reason $reason)…"
+                                        else -> "Download paused (reason $reason)…"
+                                    }
+                                }
+                                DownloadManager.STATUS_PENDING -> updateMessage = "Waiting for Android download service…"
+                                DownloadManager.STATUS_RUNNING -> {
+                                    updateMessage = if (totalBytes > 0L) {
+                                        "Downloading update… ${((downloadedBytes * 100L) / totalBytes).coerceIn(0L, 100L)}%"
+                                    } else "Downloading update…"
+                                }
+                                else -> {
+                                    updateMessage = "Checking download status…"
+                                    if (downloadStatus == -1) {
+                                        finished = true
+                                        updateMessage = "Android download task was not found. Tap Download Update to retry."
+                                    }
+                                }
+                            }
+                            if (!finished && System.currentTimeMillis() - startedAt > 15 * 60 * 1000L) {
+                                dm.remove(id)
+                                updateMessage = "Download timed out. Check your internet and tap Download Update to retry."
+                                finished = true
+                            }
+                            if (!finished) delay(1000)
+                        }
+                    } catch (e: Exception) {
+                        updateMessage = "Download error: " + (e.message ?: "Please try again.")
+                    } finally {
+                        downloadingUpdate = false
+                    }
+                } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
