@@ -226,12 +226,22 @@ fun StudioApp() {
                 }
             }
         ) { padding ->
-            when(tab) {
+            Box(Modifier.padding(padding).fillMaxSize()) {
+                when(tab) {
                 "Home" -> HomePage(Modifier.padding(padding), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true })
                 "Scenes" -> ScenesPage(Modifier.padding(padding), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
-                "Storyboard" -> StoryboardPage(Modifier.padding(padding), scenes, ::updateScenes, srtText)
+                "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.padding(padding), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.padding(padding), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
+                }
+                // Keep this page composed while other tabs are open so the uploaded
+                // storyboard, selected folder, and panel choices remain intact.
+                StoryboardPage(
+                    modifier = if (tab == "Storyboard") Modifier.fillMaxSize() else Modifier.size(0.dp),
+                    scenes = scenes,
+                    onScenesChange = ::updateScenes,
+                    timelineSrtText = srtText
+                )
             }
         }
     }
@@ -505,7 +515,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 Box {
                                     TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
                                     DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
-                                        listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
+                                        listOf("Static", "Auto Zoom", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
                                             DropdownMenuItem(text = { Text(motion) }, onClick = {
                                                 update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
                                                 motionExpanded = false
@@ -543,8 +553,28 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             "Alternate" -> if (currentIndex % 2 == 0) "Zoom In" else "Zoom Out"
             else -> currentScene.motion
         }
-        // Keep the entire source image visible; zoom/pan would crop its edges.
-        val scale = 1f
+        // Subtle Ken Burns movement: visible motion with restrained zoom.
+        val scale = when (previewMotion) {
+            "Static" -> 1f
+            "Zoom In", "Auto Zoom" -> 1f + 0.06f * progress
+            "Zoom Out" -> 1.06f - 0.06f * progress
+            "Zoom In-Out" -> 1f + 0.045f * kotlin.math.sin(progress * Math.PI).toFloat()
+            "Zoom Out-In" -> 1.045f - 0.045f * kotlin.math.sin(progress * Math.PI).toFloat()
+            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.06f
+            else -> 1.03f + 0.04f * progress
+        }
+        val panX = when (previewMotion) {
+            "Pan Left" -> 0.025f - 0.05f * progress
+            "Pan Right" -> -0.025f + 0.05f * progress
+            "Cinematic", "Ken Burns", "Zoom+Pan" -> -0.012f + 0.024f * progress
+            else -> 0f
+        }
+        val panY = when (previewMotion) {
+            "Pan Up" -> 0.025f - 0.05f * progress
+            "Pan Down" -> -0.025f + 0.05f * progress
+            "Cinematic", "Ken Burns", "Zoom+Pan" -> 0.006f - 0.012f * progress
+            else -> 0f
+        }
         androidx.compose.ui.window.Dialog(onDismissRequest = { previewPlaying = false; showTimelinePreview = false }) {
             Surface(color = Panel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -561,8 +591,8 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
-                                translationX = 0f
-                                translationY = 0f
+                                translationX = size.width * panX
+                                translationY = size.height * panY
                             }
                         )
                         if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
@@ -927,8 +957,11 @@ fun StoryboardPage(
     }
 
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
         storyboardUri = uri
         blankPanels = emptySet()
         selectedPanels.clear()
