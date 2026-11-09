@@ -8,6 +8,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 
 import android.net.Uri
 import android.os.Bundle
@@ -562,7 +563,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                     Box(Modifier.fillMaxWidth().height(230.dp).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
                         AsyncImage(
                             model = currentScene.uri,
-                            contentDescription = currentScene.name,
+                            contentDescription = displaySceneLabel(currentScene.name),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().graphicsLayer {
                                 scaleX = scale
@@ -581,7 +582,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             }
                         )
                         if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
-                        Text(currentScene.name, color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
+                        Text(displaySceneLabel(currentScene.name), color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
                         activePreviewCue?.let { cue ->
                             val previewTextColor = when (subtitleColor) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }
                             val subtitleAlignment = when (subtitlePosition) { "Top" -> Alignment.TopCenter; "Center" -> Alignment.Center; else -> Alignment.BottomCenter }
