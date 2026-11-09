@@ -197,35 +197,8 @@ object VideoExportEngine {
     }
 
     private fun motionEffect(motion: String, durationMs: Long, sceneIndex: Int): MatrixTransformation {
-        val actualMotion = when (motion) {
-            "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[sceneIndex % 5]
-            "Alternate" -> if (sceneIndex % 2 == 0) "Zoom In" else "Zoom Out"
-            else -> motion
-        }
-        return MatrixTransformation { presentationTimeUs ->
-            val progress = (presentationTimeUs / (durationMs * 1000f)).coerceIn(0f, 1f)
-            val matrix = android.graphics.Matrix()
-            val scale = when (actualMotion) {
-                "Static" -> 1f
-                "Zoom In", "Auto Zoom" -> 1f + 0.12f * progress
-                "Zoom Out" -> 1.12f - 0.12f * progress
-                "Zoom In-Out" -> 1f + 0.10f * sin(progress * Math.PI).toFloat()
-                "Zoom Out-In" -> 1.10f - 0.10f * sin(progress * Math.PI).toFloat()
-                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.28f
-                "Cinematic", "Ken Burns", "Zoom+Pan" -> 1.12f + 0.08f * progress
-                else -> 1.04f
-            }
-            matrix.setScale(scale, scale, 0.5f, 0.5f)
-            when (actualMotion) {
-                "Pan Left" -> matrix.postTranslate(0.025f - 0.05f * progress, 0f)
-                "Pan Right" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0f)
-                "Pan Up" -> matrix.postTranslate(0f, 0.025f - 0.05f * progress)
-                "Pan Down" -> matrix.postTranslate(0f, -0.025f + 0.05f * progress)
-                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0.0125f - 0.025f * progress)
-                else -> Unit
-            }
-            matrix
-        }
+        // Full-frame mode: preserve all source-image edges in preview and exported video.
+        return MatrixTransformation { android.graphics.Matrix() }
     }
 
     private fun publishToGallery(context: Context, source: File, projectName: String): Uri {
