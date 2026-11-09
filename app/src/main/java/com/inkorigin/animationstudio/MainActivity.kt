@@ -450,103 +450,80 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         }
     }
 
-    LazyColumn(
+    Column(
         modifier = modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Undo, null); Text("Undo") }
-                    OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Redo, null); Text("Redo") }
+        // Keep scene controls and preview tools fixed; only the scene list below scrolls.
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Undo, null); Text("Undo") }
+                OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Redo, null); Text("Redo") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = add, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Add images")
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = add, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Add images")
-                    }
-                    OutlinedButton(onClick = { previewPositionMs = 0L; previewPlaying = false; showTimelinePreview = true }, enabled = scenes.isNotEmpty(), modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.PlayArrow, null); Text("Preview")
-                    }
+                OutlinedButton(onClick = { previewPositionMs = 0L; previewPlaying = false; showTimelinePreview = true }, enabled = scenes.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.PlayArrow, null); Text("Preview")
                 }
-                Button(onClick = goExport, enabled = scenes.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Movie, null); Spacer(Modifier.width(8.dp)); Text("Go to Export MP4")
+            }
+            Button(onClick = goExport, enabled = scenes.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Movie, null); Spacer(Modifier.width(8.dp)); Text("Go to Export MP4")
+            }
+            Text("TIMELINE • " + scenes.size + " scenes • " + "%.1f".format(scenes.sumOf { it.duration.toDouble() }) + " seconds", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("GLOBAL CAMERA MOTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(globalMotion) }
+            androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                listOf("Static", "Auto Zoom", "Zoom In-Out", "Zoom Out-In", "Alternate", "Random", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic").forEach { option ->
+                    DropdownMenuItem(text = { Text(option) }, onClick = { setGlobalMotion(option); expanded = false })
                 }
             }
         }
 
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("TIMELINE • " + scenes.size + " scenes • " + "%.1f".format(scenes.sumOf { it.duration.toDouble() }) + " seconds", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("GLOBAL CAMERA MOTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(globalMotion)
-                }
-                androidx.compose.material3.DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Zoom Out-In", "Alternate", "Random", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic").forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option) },
-                            onClick = {
-                                setGlobalMotion(option)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (scenes.isEmpty()) {
+                item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
             }
-        }
-
-        if (scenes.isEmpty()) {
-            item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
-        }
-
-        items(scenes, key = { it.uri.toString() }) { scene ->
-            Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AsyncImage(scene.uri, scene.name, modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(scene.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text("${scene.duration} sec • ${scene.motion}", color = Muted, fontSize = 12.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration - 0.5f).coerceAtLeast(0.5f)) else it }) }) { Icon(Icons.Default.Remove, "Shorter") }
-                            IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration + 0.5f).coerceAtMost(60f)) else it }) }) { Icon(Icons.Default.Add, "Longer") }
-                            var motionExpanded by remember(scene.uri) { mutableStateOf(false) }
-                            Box {
-                                TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
-                                DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
-                                    listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
-                                        DropdownMenuItem(text = { Text(motion) }, onClick = {
-                                            update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
-                                            motionExpanded = false
-                                        })
+            items(scenes, key = { it.uri.toString() }) { scene ->
+                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(displaySceneLabel(scene.name), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text("${scene.duration} sec • ${scene.motion}", color = Muted, fontSize = 12.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration - 0.5f).coerceAtLeast(0.5f)) else it }) }) { Icon(Icons.Default.Remove, "Shorter") }
+                                IconButton(onClick = { update(scenes.map { if (it == scene) it.copy(duration = (it.duration + 0.5f).coerceAtMost(60f)) else it }) }) { Icon(Icons.Default.Add, "Longer") }
+                                var motionExpanded by remember(scene.uri) { mutableStateOf(false) }
+                                Box {
+                                    TextButton(onClick = { motionExpanded = true }) { Text("Motion") }
+                                    DropdownMenu(expanded = motionExpanded, onDismissRequest = { motionExpanded = false }) {
+                                        listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Zoom+Pan", "Ken Burns", "Cinematic", "Alternate", "Random").forEach { motion ->
+                                            DropdownMenuItem(text = { Text(motion) }, onClick = {
+                                                update(scenes.map { if (it == scene) it.copy(motion = motion) else it })
+                                                motionExpanded = false
+                                            })
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    Column {
-                        val sceneIndex = scenes.indexOf(scene)
-                        IconButton(onClick = {
-                            if (sceneIndex > 0) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex - 1, moving) })
-                        }, enabled = sceneIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
-                        IconButton(onClick = {
-                            if (sceneIndex < scenes.lastIndex) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex + 1, moving) })
-                        }, enabled = sceneIndex < scenes.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
-                        IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
+                        Column {
+                            val sceneIndex = scenes.indexOf(scene)
+                            IconButton(onClick = { if (sceneIndex > 0) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex - 1, moving) }) }, enabled = sceneIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, "Move up") }
+                            IconButton(onClick = { if (sceneIndex < scenes.lastIndex) update(scenes.toMutableList().also { val moving = it.removeAt(sceneIndex); it.add(sceneIndex + 1, moving) }) }, enabled = sceneIndex < scenes.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Move down") }
+                            IconButton(onClick = { update(scenes - scene) }) { Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF7777)) }
+                        }
                     }
                 }
             }
-        }
-
-        item {
-            Text("Tip: select images in filename order (1, 2, 3..10).", color = Muted, fontSize = 12.sp)
+            item { Text("Tip: select images in filename order (1, 2, 3..10).", color = Muted, fontSize = 12.sp) }
         }
     }
 
@@ -571,8 +548,8 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             "Zoom Out" -> 1.12f - 0.12f * progress
             "Zoom In-Out" -> 1f + 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
             "Zoom Out-In" -> 1.10f - 0.10f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> 1f + 0.09f * progress
+            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.28f
+            "Cinematic", "Ken Burns", "Zoom+Pan" -> 1.12f + 0.08f * progress
             else -> 1.04f
         }
         androidx.compose.ui.window.Dialog(onDismissRequest = { previewPlaying = false; showTimelinePreview = false }) {
@@ -591,14 +568,14 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                                 scaleX = scale
                                 scaleY = scale
                                 translationX = when (previewMotion) {
-                                    "Pan Left" -> 14f - 28f * progress
-                                    "Pan Right" -> -14f + 28f * progress
-                                    "Ken Burns", "Cinematic", "Zoom+Pan" -> -10f + 20f * progress
+                                    "Pan Left" -> 8f - 16f * progress
+                                    "Pan Right" -> -8f + 16f * progress
+                                    "Ken Burns", "Cinematic", "Zoom+Pan" -> -6f + 12f * progress
                                     else -> 0f
                                 }
                                 translationY = when (previewMotion) {
-                                    "Pan Up" -> 14f - 28f * progress
-                                    "Pan Down" -> -14f + 28f * progress
+                                    "Pan Up" -> 8f - 16f * progress
+                                    "Pan Down" -> -8f + 16f * progress
                                     else -> 0f
                                 }
                             }
@@ -1373,4 +1350,16 @@ fun StoryboardPage(
 
         Text(status, color = Accent)
     }
+}
+
+
+private fun displaySceneLabel(fileName: String): String {
+    val base = fileName.substringAfterLast('/').substringBeforeLast('.', fileName)
+    val match = Regex("^\\d+[-_ ]*([A-Za-z])\\1?[-_ ]*(\\d+)$", RegexOption.IGNORE_CASE).find(base)
+    if (match != null) {
+        val group = match.groupValues[1].uppercase(Locale.ROOT)
+        val number = match.groupValues[2].toIntOrNull()?.toString()?.padStart(2, '0') ?: match.groupValues[2]
+        return "$group-$number"
+    }
+    return base
 }
