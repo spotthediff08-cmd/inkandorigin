@@ -4,6 +4,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.content.Intent
+import android.content.Context
+import android.app.DownloadManager
+import android.os.Environment
+import android.os.Build
+import android.provider.Settings
 import androidx.documentfile.provider.DocumentFile
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
@@ -151,6 +156,8 @@ fun StudioApp() {
     var exportHistory by remember { mutableStateOf(emptyList<ExportHistoryEntry>()) }
     var updateMessage by remember { mutableStateOf("Check whether a newer version is available.") }
     var updateApkUrl by remember { mutableStateOf<String?>(null) }
+    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
+    var downloadingUpdate by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
@@ -282,7 +289,7 @@ fun StudioApp() {
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { status = "Cannot open download link" } })
+                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch { downloadingUpdate = true; downloadedApkUri = null; updateMessage = "Starting update download…"; try { val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager; val request = DownloadManager.Request(Uri.parse(url)).setTitle("Animation Studio update").setDescription("Downloading app update").setMimeType("application/vnd.android.package-archive").setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "AnimationStudio-update.apk"); val id = dm.enqueue(request); var finished = false; while (!finished) { val cursor = dm.query(DownloadManager.Query().setFilterById(id)); val downloadStatus = cursor.use { if (it.moveToFirst()) it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) else -1 }; when (downloadStatus) { DownloadManager.STATUS_SUCCESSFUL -> { downloadedApkUri = dm.getUriForDownloadedFile(id); updateMessage = if (downloadedApkUri != null) "Update downloaded. Tap Install Update to continue." else "Download finished, but the APK could not be opened."; finished = true }; DownloadManager.STATUS_FAILED -> { updateMessage = "Update download failed. Please try again."; finished = true }; else -> { updateMessage = "Downloading update…"; delay(800) } } } } catch (e: Exception) { updateMessage = "Download error: ${e.message ?: "Please try again."}" } finally { downloadingUpdate = false } } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
@@ -385,7 +392,7 @@ fun StudioApp() {
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, checkUpdates:()->Unit, installUpdate:(String)->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 23.sp, fontWeight = FontWeight.Bold)
@@ -404,9 +411,12 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                         Text("Check for Updates")
                     }
                     if (updateApkUrl != null) {
-                        OutlinedButton(onClick = { installUpdate(updateApkUrl) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Download Update")
+                        OutlinedButton(onClick = { downloadUpdate(updateApkUrl) }, enabled = !downloadingUpdate, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (downloadingUpdate) "Downloading…" else "Download Update")
                         }
+                    }
+                    if (hasDownloadedUpdate) {
+                        OutlinedButton(onClick = { installUpdate() }, modifier = Modifier.fillMaxWidth()) { Text("Install Update") }
                     }
                 }
             }
