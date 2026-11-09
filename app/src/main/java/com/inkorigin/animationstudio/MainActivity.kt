@@ -45,6 +45,45 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+
+private suspend fun checkLatestStudioRelease(context: android.content.Context): Pair<String, String?> {
+    return try {
+        val connection = (URL("https://api.github.com/repos/spotthediff08-cmd/inkandorigin/releases/latest").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 12000
+            readTimeout = 12000
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "Animation-Studio-Android")
+        }
+        try {
+            if (connection.responseCode != 200) {
+                return Pair("No published update is available yet.", null)
+            }
+            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val tag = json.optString("tag_name").removePrefix("v")
+            val installed = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+            val apkUrl = json.optJSONArray("assets")?.let { assets ->
+                (0 until assets.length()).map { assets.getJSONObject(it) }
+                    .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                    ?.optString("browser_download_url")
+            }?.takeIf { it.isNotBlank() }
+            if (tag.isBlank() || tag == installed) {
+                Pair("You are using the latest version ($installed).", null)
+            } else if (apkUrl == null) {
+                Pair("A newer release ($tag) exists, but its APK is not attached yet.", null)
+            } else {
+                Pair("Update available: $tag (installed: $installed).", apkUrl)
+            }
+        } finally {
+            connection.disconnect()
+        }
+    } catch (e: Exception) {
+        Pair("Update check failed. Check your internet connection and try again.", null)
+    }
+}
 
 private val Bg = Color(0xFF0B0D12)
 private val Panel = Color(0xFF171B24)
@@ -110,6 +149,8 @@ fun StudioApp() {
     var exportStatus by remember { mutableStateOf("Ready to export") }
     var lastExportUri by remember { mutableStateOf<Uri?>(null) }
     var exportHistory by remember { mutableStateOf(emptyList<ExportHistoryEntry>()) }
+    var updateMessage by remember { mutableStateOf("Check whether a newer version is available.") }
+    var updateApkUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
@@ -241,7 +282,7 @@ fun StudioApp() {
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true })
+                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure { status = "Cannot open download link" } })
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
@@ -344,11 +385,31 @@ fun StudioApp() {
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit) {
+fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, checkUpdates:()->Unit, installUpdate:(String)->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Your next story starts here.", fontSize = 23.sp, fontWeight = FontWeight.Bold)
             Text("Build a video from scenes, voice and subtitles.", color = Muted)
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = Accent)
+                        Spacer(Modifier.width(8.dp))
+                        Text("APP UPDATES", fontWeight = FontWeight.Bold)
+                    }
+                    Text(updateMessage, color = Muted, fontSize = 12.sp)
+                    Button(onClick = checkUpdates, modifier = Modifier.fillMaxWidth()) {
+                        Text("Check for Updates")
+                    }
+                    if (updateApkUrl != null) {
+                        OutlinedButton(onClick = { installUpdate(updateApkUrl) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Download Update")
+                        }
+                    }
+                }
+            }
         }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
