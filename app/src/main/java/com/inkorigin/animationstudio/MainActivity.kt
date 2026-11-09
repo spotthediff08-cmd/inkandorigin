@@ -858,7 +858,9 @@ fun naturalKey(value: String): String = value.lowercase().replace(Regex("\\d+"))
 
 private fun detectBlankPanels(bitmap: Bitmap, grid: Int): Set<Int> {
     val blanks = mutableSetOf<Int>()
-
+    // Conservative detection: only flag panels that are almost completely solid
+    // black/white. This avoids classifying pale drawings or dark scenes as blank.
+    val sampleGrid = 16
     for (index in 0 until grid * grid) {
         val row = index / grid
         val col = index % grid
@@ -866,35 +868,32 @@ private fun detectBlankPanels(bitmap: Bitmap, grid: Int): Set<Int> {
         val top = row * bitmap.height / grid
         val right = (col + 1) * bitmap.width / grid
         val bottom = (row + 1) * bitmap.height / grid
+        if (right <= left || bottom <= top) continue
 
         var sum = 0.0
         var sumSq = 0.0
+        var nearExtreme = 0
         var count = 0
-
-        for (y in 0 until 8) {
-            for (x in 0 until 8) {
-                val px = (left + (x + 0.5) * (right - left) / 8)
+        for (y in 0 until sampleGrid) {
+            for (x in 0 until sampleGrid) {
+                val px = (left + (x + 0.5) * (right - left) / sampleGrid)
                     .toInt().coerceIn(left, right - 1)
-                val py = (top + (y + 0.5) * (bottom - top) / 8)
+                val py = (top + (y + 0.5) * (bottom - top) / sampleGrid)
                     .toInt().coerceIn(top, bottom - 1)
                 val color = bitmap.getPixel(px, py)
-                val gray = (
-                    0.299 * android.graphics.Color.red(color) +
+                val gray = 0.299 * android.graphics.Color.red(color) +
                     0.587 * android.graphics.Color.green(color) +
                     0.114 * android.graphics.Color.blue(color)
-                )
                 sum += gray
                 sumSq += gray * gray
+                if (gray >= 248 || gray <= 7) nearExtreme++
                 count++
             }
         }
-
         val mean = sum / count
-        val variance = sumSq / count - mean * mean
-
-        if ((mean > 225 || mean < 35) && variance < 180) {
-            blanks.add(index)
-        }
+        val variance = (sumSq / count - mean * mean).coerceAtLeast(0.0)
+        val almostSolid = nearExtreme.toFloat() / count >= 0.985f && variance < 20.0
+        if (almostSolid && (mean >= 248 || mean <= 7)) blanks.add(index)
     }
     return blanks
 }
@@ -1152,14 +1151,15 @@ fun StoryboardPage(
             ) { Text(if (processing) "Splitting all selected..." else "Split All Selected Storyboards") }
             OutlinedButton(
                 onClick = {
-                    val additions = folderImages.map { Scene(it.uri, it.name ?: "Image") }
+                    val targets = folderImages.filter { it.uri in selectedFolderUris }
+                    val additions = targets.map { Scene(it.uri, it.name ?: "Image") }
                     val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
                     onScenesChange(applyTimelineSrt(combined, timelineSrtText))
-                    status = "${additions.size} folder images added directly to Scenes."
+                    status = "${additions.size} selected folder images added directly as scenes (no splitting)."
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !processing
-            ) { Text("Add All Folder Images as Scenes (without splitting)") }
+                enabled = selectedFolderUris.isNotEmpty() && !processing
+            ) { Text("Add Selected Images as Scenes (No Split)") }
         }
 
         Text("Choose Grid Size", fontWeight = FontWeight.Bold)
@@ -1302,7 +1302,7 @@ fun StoryboardPage(
                                     val added = mutableListOf<Scene>()
                                     var duplicates = 0
 
-                                    for (index in selectedPanels.filterNot { it in blankPanels }.sorted()) {
+                                    for (index in selectedPanels.sorted()) { // Manual selection overrides the auto-detection suggestion.
                                         val row = index / gridSize
                                         val col = index % gridSize
                                         val left = col * bitmap.width / gridSize
