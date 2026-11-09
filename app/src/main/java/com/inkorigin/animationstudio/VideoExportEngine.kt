@@ -133,7 +133,7 @@ object VideoExportEngine {
         }
         val videoEffects = mutableListOf<androidx.media3.common.Effect>()
         videoEffects += Presentation.createForWidthAndHeight(
-            widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT
+            widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
         val overlays = mutableListOf<androidx.media3.effect.TextureOverlay>()
         if (settings.transition == "Fade through black" && sceneBoundariesMs.isNotEmpty()) {
@@ -203,23 +203,25 @@ object VideoExportEngine {
         }
         return MatrixTransformation { presentationTimeUs ->
             val progress = (presentationTimeUs / (durationMs.coerceAtLeast(1L) * 1000f)).coerceIn(0f, 1f)
+            // Keep a small overscan at all times so camera movement never reveals canvas edges.
             val scale = when (actualMotion) {
-                "Static" -> 1f
-                "Zoom In", "Auto Zoom" -> 1f + 0.06f * progress
-                "Zoom Out" -> 1.06f - 0.06f * progress
-                "Zoom In-Out" -> 1f + 0.045f * sin(progress * Math.PI).toFloat()
-                "Zoom Out-In" -> 1.045f - 0.045f * sin(progress * Math.PI).toFloat()
-                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.06f
-                else -> 1.03f + 0.04f * progress
+                "Static" -> 1.04f
+                "Zoom In", "Auto Zoom" -> 1.04f + 0.12f * progress
+                "Zoom Out" -> 1.16f - 0.12f * progress
+                "Zoom In-Out" -> 1.04f + 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
+                "Zoom Out-In" -> 1.16f - 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
+                "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
+                else -> 1.06f + 0.10f * progress
             }
             val matrix = android.graphics.Matrix()
             matrix.setScale(scale, scale, 0.5f, 0.5f)
             when (actualMotion) {
-                "Pan Left" -> matrix.postTranslate(0.025f - 0.05f * progress, 0f)
-                "Pan Right" -> matrix.postTranslate(-0.025f + 0.05f * progress, 0f)
-                "Pan Up" -> matrix.postTranslate(0f, 0.025f - 0.05f * progress)
-                "Pan Down" -> matrix.postTranslate(0f, -0.025f + 0.05f * progress)
-                "Ken Burns", "Cinematic", "Zoom+Pan" -> matrix.postTranslate(-0.012f + 0.024f * progress, 0.006f - 0.012f * progress)
+                "Pan Left" -> matrix.postTranslate(0.04f - 0.08f * progress, 0f)
+                "Pan Right" -> matrix.postTranslate(-0.04f + 0.08f * progress, 0f)
+                "Pan Up" -> matrix.postTranslate(0f, 0.04f - 0.08f * progress)
+                "Pan Down" -> matrix.postTranslate(0f, -0.04f + 0.08f * progress)
+                "Ken Burns", "Cinematic", "Zoom+Pan" ->
+                    matrix.postTranslate(-0.025f + 0.05f * progress, 0.012f - 0.024f * progress)
                 else -> Unit
             }
             matrix
