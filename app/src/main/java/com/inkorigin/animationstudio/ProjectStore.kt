@@ -146,25 +146,27 @@ object ProjectStore {
             // A duplicated project owns its copied assets. Never leave absolute paths
             // pointing back into the original project, otherwise deleting the original
             // would silently break the duplicate's images and voiceover.
+            val sourceRootPath = source.canonicalFile.toPath()
+            fun copiedAssetPath(oldPath: String, label: String): File {
+                val originalAssetPath = File(oldPath).canonicalFile.toPath()
+                require(originalAssetPath.startsWith(sourceRootPath)) { "$label is outside the source project" }
+                val relativePath = sourceRootPath.relativize(originalAssetPath)
+                return File(destination, relativePath.toString())
+            }
+
             val copiedScenes = json.optJSONArray("scenes") ?: JSONArray()
             for (index in 0 until copiedScenes.length()) {
                 val scene = copiedScenes.optJSONObject(index) ?: continue
                 val oldPath = scene.optString("path")
                 if (oldPath.isBlank()) continue
-                val oldAsset = File(oldPath)
-                val relativePath = runCatching { oldAsset.canonicalFile.relativeTo(source.canonicalFile) }.getOrNull()
-                    ?: error("A scene asset is outside the source project")
-                val copiedAsset = File(destination, relativePath.path)
+                val copiedAsset = copiedAssetPath(oldPath, "A scene asset")
                 require(copiedAsset.isFile) { "A copied scene image is missing" }
                 scene.put("path", copiedAsset.absolutePath)
             }
 
             val oldAudioPath = json.optString("audioPath", "")
             if (oldAudioPath.isNotBlank() && oldAudioPath != "null") {
-                val oldAudio = File(oldAudioPath)
-                val relativeAudioPath = runCatching { oldAudio.canonicalFile.relativeTo(source.canonicalFile) }.getOrNull()
-                    ?: error("The voiceover asset is outside the source project")
-                val copiedAudio = File(destination, relativeAudioPath.path)
+                val copiedAudio = copiedAssetPath(oldAudioPath, "The voiceover asset")
                 require(copiedAudio.isFile) { "The copied voiceover is missing" }
                 json.put("audioPath", copiedAudio.absolutePath)
             }
