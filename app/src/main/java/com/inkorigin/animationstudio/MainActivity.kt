@@ -151,7 +151,7 @@ fun StudioApp() {
     var showProjects by remember { mutableStateOf(false) }
     var projectPendingDelete by remember { mutableStateOf<ProjectSummary?>(null) }
     var lastProjectId by remember { mutableStateOf<String?>(null) }
-    var sceneToReplace by remember { mutableStateOf<String?>(null) }
+    var sceneToReplaceIndex by remember { mutableStateOf<Int?>(null) }
     var exporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableIntStateOf(0) }
     var exportStatus by remember { mutableStateOf("Ready to export") }
@@ -275,16 +275,16 @@ fun StudioApp() {
     }
 
     val replaceImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val target = sceneToReplace
-        if (uri != null && target != null) {
+        val targetIndex = sceneToReplaceIndex
+        if (uri != null && targetIndex != null && targetIndex in scenes.indices) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val replacementName = uri.lastPathSegment?.substringAfterLast('/') ?: "Scene"
-            updateScenes(scenes.map { scene ->
-                if (scene.uri.toString() == target) scene.copy(uri = uri, name = replacementName) else scene
+            updateScenes(scenes.mapIndexed { index, scene ->
+                if (index == targetIndex) scene.copy(uri = uri, name = replacementName) else scene
             })
             status = "Scene image replaced"
         }
-        sceneToReplace = null
+        sceneToReplaceIndex = null
     }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; audio = uri; status = "Voiceover selected" }
@@ -446,7 +446,7 @@ fun StudioApp() {
                         downloadingUpdate = false
                     }
                 } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
-                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { scene -> sceneToReplace = scene.uri.toString(); replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
+                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { scene -> sceneToReplaceIndex = scenes.indexOf(scene); replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.fillMaxSize(), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -728,7 +728,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             if (scenes.isEmpty()) {
                 item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
             }
-            items(scenes, key = { it.uri.toString() }) { scene ->
+            items(scenes) { scene ->
                 Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
