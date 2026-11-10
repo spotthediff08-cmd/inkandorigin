@@ -398,13 +398,14 @@ fun StudioApp() {
             containerColor = Bg,
             topBar = {
                 TopAppBar(
-                    navigationIcon = { Box(Modifier.padding(start = 12.dp, end = 10.dp).size(38.dp).background(AccentSoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Accent) } },
-                    title = { Column(verticalArrangement = Arrangement.spacedBy(1.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp); Text("YOUR CREATIVE WORKSPACE", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp) } },
+                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Brush.linearGradient(listOf(Color(0xFF7652C8), Color(0xFF34264F))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp)) } },
+                    title = { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp); Text("CREATIVE PRODUCTION SUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp) } },
+                    actions = { Box(Modifier.padding(end = 14.dp).size(34.dp).background(Panel, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, contentDescription = "Studio", tint = Accent, modifier = Modifier.size(17.dp)) } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
                 )
             },
             bottomBar = {
-                NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
+                NavigationBar(containerColor = Color(0xFF10141E), tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
                     listOf("Home", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
                         val destination = if (item == "Board") "Storyboard" else item
                         NavigationBarItem(
@@ -527,7 +528,11 @@ fun StudioApp() {
     if (showProjects) {
         AlertDialog(
             onDismissRequest = { showProjects = false },
-            title = { Text("Saved projects") },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Muted,
+            title = { Text("Your project library", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
@@ -535,8 +540,8 @@ fun StudioApp() {
                 ) {
                     if (savedProjects.isEmpty()) Text("No saved projects yet.")
                     savedProjects.forEach { project ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.75f))) {
+                            Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(project.name, fontWeight = FontWeight.Bold)
                                 Text(project.sceneCount.toString() + " scenes", color = Muted, fontSize = 12.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -576,7 +581,11 @@ fun StudioApp() {
     projectPendingDelete?.let { pending ->
         AlertDialog(
             onDismissRequest = { projectPendingDelete = null },
-            title = { Text("Delete project?") },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Muted,
+            title = { Text("Delete project?", fontWeight = FontWeight.Bold) },
             text = {
                 Text(if (pending.id == projectId) {
                     "${pending.name} is currently open. Deleting it will start a new blank project. This cannot be undone."
@@ -605,165 +614,231 @@ fun StudioApp() {
 @Composable
 fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, hasLastProject: Boolean, resumeLastProject:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
     LazyColumn(
-        modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("WELCOME TO YOUR STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                Text("Make something\nthat stays.", fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
-                Text("Turn your scenes, voice and story into a finished film.", color = Muted, fontSize = 13.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("YOUR CREATIVE WORKSPACE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.45.sp)
+                    Text("Create something\nremarkable.", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                    Text("Everything you need to turn scenes into a film.", color = Muted, fontSize = 12.sp)
+                }
+                Box(
+                    Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Accent, modifier = Modifier.size(24.dp))
+                }
             }
         }
         item {
-            Box(
-                Modifier.fillMaxWidth()
-                    .background(Brush.linearGradient(listOf(Color(0xFF302448), Color(0xFF1D2638), Color(0xFF172D35))), RoundedCornerShape(26.dp))
-                    .padding(20.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                shape = RoundedCornerShape(25.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6D55A4).copy(alpha = 0.55f))
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFFE4D8FF), modifier = Modifier.size(16.dp))
-                        Text("YOUR NEXT PROJECT", color = Color(0xFFE4D8FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    }
-                    Text("Bring your story\nto life.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
-                    Text("A focused workspace for cinematic scenes and narration.", color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp, lineHeight = 18.sp)
-                    Button(
-                        onClick = goScenes,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = count > 0,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF171322), disabledContainerColor = Color.White.copy(alpha = 0.24f))
-                    ) {
-                        Icon(Icons.Default.PlayArrow, null)
-                        Spacer(Modifier.width(7.dp))
-                        Text(if (count > 0) "Open Scene Editor" else "Add scenes to get started", fontWeight = FontWeight.Bold)
+                Box(
+                    Modifier.fillMaxWidth().background(
+                        Brush.linearGradient(listOf(Color(0xFF302448), Color(0xFF20243A), Color(0xFF142B35)))
+                    ).padding(19.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFFE7DCFF), modifier = Modifier.size(15.dp))
+                            Text("THE STUDIO", color = Color(0xFFE7DCFF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                            Spacer(Modifier.weight(1f))
+                            Surface(color = Color.White.copy(alpha = 0.10f), shape = RoundedCornerShape(30.dp)) {
+                                Text("PRODUCTION SUITE", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.White.copy(alpha = 0.85f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                            }
+                        }
+                        Text("Your next story\nstarts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+                        Text("Build a cinematic sequence with your images, narration and perfectly timed subtitles.", color = Color.White.copy(alpha = 0.74f), fontSize = 12.sp, lineHeight = 18.sp)
+                        Button(
+                            onClick = goScenes,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            enabled = count > 0,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color(0xFF211735),
+                                disabledContainerColor = Color.White.copy(alpha = 0.18f),
+                                disabledContentColor = Color.White.copy(alpha = 0.65f)
+                            )
+                        ) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(7.dp))
+                            Text(if (count > 0) "Open Scene Editor" else "Import images to begin", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.weight(1f))
-                StudioStatCard("VOICEOVER", if (hasAudio) "Ready" else "Missing", Icons.Default.Mic, Modifier.weight(1f))
-                StudioStatCard("TIMELINE SRT", if (srt.contains("-->")) "Loaded" else "Missing", Icons.Default.Subtitles, Modifier.weight(1f))
+                StudioStatCard("VOICEOVER", if (hasAudio) "READY" else "NOT SET", Icons.Default.Mic, Modifier.weight(1f))
+                StudioStatCard("TIMELINE SRT", if (!srt.startsWith("No ")) "READY" else "NOT SET", Icons.Default.Subtitles, Modifier.weight(1f))
             }
         }
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))
+                shape = RoundedCornerShape(21.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))
             ) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("CURRENT PROJECT", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                            Text(name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp)
+                            Text(name, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1)
                         }
-                        Icon(Icons.Default.Edit, null, tint = Accent, modifier = Modifier.size(18.dp))
+                        Box(Modifier.size(36.dp).background(AccentSoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Edit, null, tint = Accent, modifier = Modifier.size(17.dp))
+                        }
                     }
                     OutlinedTextField(
                         value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(),
-                        singleLine = true, shape = RoundedCornerShape(13.dp),
+                        singleLine = true, shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Accent, unfocusedBorderColor = Outline,
                             focusedLabelColor = Accent, cursorColor = Accent
                         )
                     )
-                    Text("STATUS  •  $status", color = Accent, fontSize = 11.sp, maxLines = 2)
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(Icons.Default.Info, null, tint = Accent, modifier = Modifier.size(14.dp))
+                        Text(status, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 3)
+                    }
                 }
             }
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Your workspace", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TextButton(onClick = openProjects) { Text("All projects", color = Accent) }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Your projects", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Pick up where you left off.", color = Muted, fontSize = 11.sp)
+                }
+                TextButton(onClick = openProjects) { Text("View all", color = Accent, fontWeight = FontWeight.SemiBold) }
             }
+            Spacer(Modifier.height(5.dp))
             OutlinedButton(
-                onClick = openProjects, modifier = Modifier.fillMaxWidth(),
+                onClick = openProjects, modifier = Modifier.fillMaxWidth().height(49.dp),
                 shape = RoundedCornerShape(14.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
             ) {
                 Icon(Icons.Default.FolderOpen, null, tint = Accent)
                 Spacer(Modifier.width(9.dp))
-                Text("Open / Manage Saved Projects")
+                Text("Open project library", fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
             if (hasLastProject) {
-                Spacer(Modifier.height(7.dp))
-                Button(onClick = resumeLastProject, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = resumeLastProject, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(14.dp)) {
                     Icon(Icons.Default.RestartAlt, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Continue Last Project")
+                    Text("Continue last project", fontWeight = FontWeight.Bold)
                 }
             }
         }
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Import your assets", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("STEP 01–03", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Import your assets", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Bring your visual and audio elements into the studio.", color = Muted, fontSize = 11.sp)
             }
         }
-        item { ActionCard("Image folder", "$count images • Select your storyboard images", Icons.Default.Folder, addFolder) }
+        item { ActionCard("Image folder", "$count images • Select storyboard images", Icons.Default.Folder, addFolder) }
         item { ActionCard("Voiceover", if (hasAudio) "Narration audio selected" else "Choose your narration audio", Icons.Default.Mic, addAudio) }
         item { ActionCard("Timeline subtitles", srt, Icons.Default.Subtitles, addSrt) }
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
                 shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))
+                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.TipsAndUpdates, null, tint = Accent)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Simple workflow", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.TipsAndUpdates, null, tint = Accent, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(9.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("A simple workflow", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("From assets to finished video", color = Muted, fontSize = 10.sp)
+                        }
                     }
-                    Text("1  Import your image folder\n2  Add voiceover audio\n3  Import timeline SRT\n4  Add word-level SRT in Subtitles\n5  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
-                    Button(onClick = goScenes, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Manage scenes") }
+                    Text("01  Import your image folder\n02  Add your voiceover audio\n03  Import timeline SRT\n04  Add word-level SRT in Subtitles\n05  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
+                    Button(onClick = goScenes, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(13.dp)) {
+                        Text("Manage scenes", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Default.ArrowForward, null, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(19.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))
+            ) {
+                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = Accent)
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("APP UPDATES", fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 0.8.sp)
+                        Text("APP UPDATES", fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.sp)
                     }
-                    Text(updateMessage, color = Muted, fontSize = 11.sp)
+                    Text(updateMessage, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                     OutlinedButton(onClick = checkUpdates, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(13.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-                        Text("Check for Updates")
+                        Text("Check for updates")
                     }
                     if (updateApkUrl != null) {
                         OutlinedButton(onClick = { downloadUpdate(updateApkUrl) }, enabled = !downloadingUpdate, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (downloadingUpdate) "Downloading…" else "Download Update")
+                            Text(if (downloadingUpdate) "Downloading…" else "Download update")
                         }
                     }
                     if (hasDownloadedUpdate) {
-                        Button(onClick = installUpdate, modifier = Modifier.fillMaxWidth()) { Text("Install Update") }
+                        Button(onClick = installUpdate, modifier = Modifier.fillMaxWidth()) { Text("Install update") }
                     }
                 }
             }
         }
-        item { Text("ANIMATION STUDIO  •  MADE FOR STORYTELLERS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) }
+        item {
+            Text(
+                "ANIMATION STUDIO  •  MADE FOR STORYTELLERS",
+                color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
     }
 }
-
 @Composable
 private fun StudioStatCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+    val statusColor = when {
+        label == "VOICEOVER" && value == "READY" -> Color(0xFF65D6A4)
+        label == "TIMELINE SRT" && value == "READY" -> Color(0xFF65C8E8)
+        else -> Accent
+    }
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.55f))
+        shape = RoundedCornerShape(17.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.72f))
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Icon(icon, null, tint = Accent, modifier = Modifier.size(17.dp))
-            Text(value, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(label, color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, maxLines = 1)
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Box(Modifier.size(29.dp).background(statusColor.copy(alpha = 0.13f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = statusColor, modifier = Modifier.size(16.dp))
+            }
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, color = Color.White)
+            Text(label, color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp, maxLines = 1)
         }
     }
 }
@@ -867,12 +942,24 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         // Keep scene controls and preview tools fixed; only the scene list below scrolls.
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("EDIT YOUR STORY", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Scene library", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Arrange visuals, motion and timing.", color = Muted, fontSize = 12.sp) }
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("EDIT YOUR STORY", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.55).sp)
+                    Text("Arrange visuals, motion and timing.", color = Muted, fontSize = 11.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(color = AccentSoft, shape = RoundedCornerShape(9.dp)) { Text("${scenes.size} SCENES", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.width(7.dp))
+                        Surface(color = PanelElevated, shape = RoundedCornerShape(9.dp)) { Text(" ${"%.1f".format(scenes.sumOf { it.duration.toDouble() })} SEC ", modifier = Modifier.padding(horizontal = 5.dp, vertical = 6.dp), color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Undo, null); Text("Undo") }
                 OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Redo, null); Text("Redo") }
@@ -906,9 +993,9 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
             }
             itemsIndexed(scenes) { sceneIndex, scene ->
-                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
-                    Row(Modifier.fillMaxWidth().padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(19.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(82.dp).background(Bg, RoundedCornerShape(12.dp)).clickable { previewScene.value = scene }, contentScale = ContentScale.Crop)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(displaySceneLabel(scene.name), fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -1086,12 +1173,19 @@ fun SubtitlePage(
         cues = withContext(Dispatchers.IO) { SubtitleEngine.parse(text) }
         parsing = false
     }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("CAPTIONS & STYLE", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Subtitles", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text(fileName, color = Muted, fontSize = 12.sp, maxLines = 2) }
-        Button(onClick = import, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import SRT file") }
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("CAPTIONS & STYLE", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Text("Subtitle studio", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                Text(fileName, color = Muted, fontSize = 11.sp, maxLines = 2)
+                Text("${cues.size} TIMED CUES", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+            }
+        }
+        Button(onClick = import, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import subtitle SRT", fontWeight = FontWeight.Bold) }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SUBTITLE STYLE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("SUBTITLE STYLE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Surface(color = AccentSoft, shape = RoundedCornerShape(8.dp)) { Text("PREVIEW", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Accent, fontSize = 8.sp, fontWeight = FontWeight.Bold) } }
                 Text("Font size: " + fontSize + " px at 1080p", color = Muted)
                 Slider(value = fontSize.toFloat(), onValueChange = { setFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
                 Text("Text color", color = Muted)
@@ -1143,11 +1237,18 @@ fun SubtitlePage(
 
 @Composable
 fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, frameRate: Int, setFrameRate:(Int)->Unit, transition: String, setTransition:(String)->Unit, exporting: Boolean, progress: Int, onCancel: () -> Unit, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("FINAL OUTPUT", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Export video", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Review your settings before rendering.", color = Muted, fontSize = 12.sp) }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("FINAL OUTPUT", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Text("Export studio", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                Text("Configure quality, format and render your finished film.", color = Muted, fontSize = 11.sp)
+                Text("MP4 • H.264 • AAC", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Icon(Icons.Default.FactCheck, null, tint = Accent, modifier = Modifier.size(17.dp)) }
                 Text("Scene images: $count\nSRT scene titles: $srtCount\nVoiceover: ${if(audio) "Added" else "Missing"}\nAspect ratio: $aspectRatio\nResolution: $resolution", color = Muted, lineHeight = 24.sp)
                 if (srtCount == count && count > 0) {
                     Text("SRT and scene counts match. Export is ready.", color = Color(0xFF75D69A), fontSize = 12.sp)
@@ -1182,8 +1283,8 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
                 Text("H.264 video • AAC voiceover • SRT subtitle burn-in • " + frameRate + " fps", color = Muted, fontSize = 13.sp)
             }
         }
-        Button(onClick = onExport, enabled = count > 0 && srtCount == count && !exporting, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(8.dp)); Text(if (exporting) "Rendering…" else "Export MP4")
+        Button(onClick = onExport, enabled = count > 0 && srtCount == count && !exporting, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) {
+            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(9.dp)); Text(if (exporting) "Rendering your video…" else "Render & Export MP4", fontWeight = FontWeight.Bold)
         }
         if (exporting) {
             if (progress > 0) LinearProgressIndicator(progress = { progress.coerceIn(0, 100) / 100f }, modifier = Modifier.fillMaxWidth())
@@ -1198,8 +1299,8 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
         if (history.isNotEmpty()) {
             Text("EXPORT HISTORY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             history.take(10).forEach { entry ->
-                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(entry.fileName, maxLines = 1, fontWeight = FontWeight.SemiBold)
                             Text(java.text.SimpleDateFormat("dd MMM yyyy • HH:mm", java.util.Locale.getDefault()).format(java.util.Date(entry.createdAt)), color = Muted, fontSize = 11.sp)
@@ -1215,17 +1316,35 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
 
 @Composable
 fun ActionCard(title:String, detail:String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick:()->Unit) {
-    Card(Modifier.fillMaxWidth().clickable { onClick() }, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.55f))) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Accent, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(detail, color = Muted, fontSize = 12.sp) }
-            Icon(Icons.Default.ChevronRight, null, tint = Muted)
+    Card(
+        Modifier.fillMaxWidth().clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.72f))
+    ) {
+        Row(Modifier.padding(horizontal = 15.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Accent, modifier = Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(detail, color = Muted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Muted, modifier = Modifier.size(20.dp))
         }
     }
 }
-@Composable fun SectionTitle(text:String) { Text(text, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-@Composable fun EmptyHint(text:String) { Card(colors = CardDefaults.cardColors(containerColor = Panel)) { Text(text, Modifier.padding(18.dp), color = Muted) } }
+@Composable fun SectionTitle(text:String) { Text(text.uppercase(Locale.ROOT), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+@Composable fun EmptyHint(text:String) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.75f))) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, null, tint = Accent) }
+            Text("Nothing here yet", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(text, color = Muted, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 17.sp)
+        }
+    }
+}
 
 
 fun collectImageDocuments(folder: DocumentFile): List<DocumentFile> {
@@ -1409,17 +1528,17 @@ fun StoryboardPage(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { Text("IMAGE WORKFLOW", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); Text("Storyboard Pro", fontSize = 25.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp); Text("Split contact sheets into individual scene images.", color = Muted, fontSize = 12.sp) }
-        Text(
-            "Split contact sheets into individual scene images.",
-            color = Muted
-        )
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("IMAGE WORKFLOW", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Text("Storyboard Pro", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                Text("Turn contact sheets into individual scene images.", color = Muted, fontSize = 11.sp)
+                Text("BATCH IMPORT • PANEL SELECTION • AUTO BLANK CHECK", color = Color(0xFF69CBE8), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+            }
+        }
 
         Button(
             onClick = { storyboardFolderPicker.launch(null) },
@@ -1451,7 +1570,7 @@ fun StoryboardPage(
             Text("${selectedFolderUris.size} of ${folderImages.size} storyboards selected", color = Muted, fontSize = 11.sp)
             folderImages.take(100).forEachIndexed { index, item ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
@@ -1617,8 +1736,8 @@ fun StoryboardPage(
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .background(
-                                    if (selected) Accent else Panel,
-                                    RoundedCornerShape(8.dp)
+                                    if (selected) Accent else PanelElevated,
+                                    RoundedCornerShape(10.dp)
                                 )
                                 .clickable(enabled = !processing) {
                                     if (selected) selectedPanels.remove(index)
