@@ -682,7 +682,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.weight(1f))
                 StudioStatCard("VOICEOVER", if (hasAudio) "READY" else "NOT SET", Icons.Default.Mic, Modifier.weight(1f))
-                StudioStatCard("TIMELINE SRT", if (srt.contains("-->")) "READY" else "NOT SET", Icons.Default.Subtitles, Modifier.weight(1f))
+                StudioStatCard("TIMELINE SRT", if (!srt.startsWith("No ")) "READY" else "NOT SET", Icons.Default.Subtitles, Modifier.weight(1f))
             }
         }
         item {
@@ -838,7 +838,7 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
                 Icon(icon, null, tint = statusColor, modifier = Modifier.size(16.dp))
             }
             Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, color = Color.White)
-            Text(label, color = Muted, fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp, maxLines = 1)
+            Text(label, color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp, maxLines = 1)
         }
     }
 }
