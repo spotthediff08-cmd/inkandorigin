@@ -528,7 +528,11 @@ fun StudioApp() {
     if (showProjects) {
         AlertDialog(
             onDismissRequest = { showProjects = false },
-            title = { Text("Saved projects") },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Muted,
+            title = { Text("Your project library", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
@@ -536,8 +540,8 @@ fun StudioApp() {
                 ) {
                     if (savedProjects.isEmpty()) Text("No saved projects yet.")
                     savedProjects.forEach { project ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.75f))) {
+                            Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(project.name, fontWeight = FontWeight.Bold)
                                 Text(project.sceneCount.toString() + " scenes", color = Muted, fontSize = 12.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -577,7 +581,11 @@ fun StudioApp() {
     projectPendingDelete?.let { pending ->
         AlertDialog(
             onDismissRequest = { projectPendingDelete = null },
-            title = { Text("Delete project?") },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Muted,
+            title = { Text("Delete project?", fontWeight = FontWeight.Bold) },
             text = {
                 Text(if (pending.id == projectId) {
                     "${pending.name} is currently open. Deleting it will start a new blank project. This cannot be undone."
@@ -1297,8 +1305,8 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
         if (history.isNotEmpty()) {
             Text("EXPORT HISTORY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             history.take(10).forEach { entry ->
-                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(entry.fileName, maxLines = 1, fontWeight = FontWeight.SemiBold)
                             Text(java.text.SimpleDateFormat("dd MMM yyyy • HH:mm", java.util.Locale.getDefault()).format(java.util.Date(entry.createdAt)), color = Muted, fontSize = 11.sp)
@@ -1568,7 +1576,7 @@ fun StoryboardPage(
             Text("${selectedFolderUris.size} of ${folderImages.size} storyboards selected", color = Muted, fontSize = 11.sp)
             folderImages.take(100).forEachIndexed { index, item ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
@@ -1734,8 +1742,8 @@ fun StoryboardPage(
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .background(
-                                    if (selected) Accent else Panel,
-                                    RoundedCornerShape(8.dp)
+                                    if (selected) Accent else PanelElevated,
+                                    RoundedCornerShape(10.dp)
                                 )
                                 .clickable(enabled = !processing) {
                                     if (selected) selectedPanels.remove(index)
