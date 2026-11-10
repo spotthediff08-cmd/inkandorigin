@@ -816,16 +816,26 @@ starts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWe
 }
 @Composable
 private fun StudioStatCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+    val statusColor = when {
+        label == "VOICEOVER" && value == "READY" -> Color(0xFF65D6A4)
+        label == "TIMELINE SRT" && value == "READY" -> Color(0xFF65C8E8)
+        else -> Accent
+    }
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.55f))
+        shape = RoundedCornerShape(17.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.72f))
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Icon(icon, null, tint = Accent, modifier = Modifier.size(17.dp))
-            Text(value, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(label, color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, maxLines = 1)
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Box(Modifier.size(29.dp).background(statusColor.copy(alpha = 0.13f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = statusColor, modifier = Modifier.size(16.dp))
+            }
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, color = Color.White)
+            Text(label, color = Muted, fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp, maxLines = 1)
         }
     }
 }
@@ -1277,12 +1287,22 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
 
 @Composable
 fun ActionCard(title:String, detail:String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick:()->Unit) {
-    Card(Modifier.fillMaxWidth().clickable { onClick() }, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.55f))) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Accent, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(detail, color = Muted, fontSize = 12.sp) }
-            Icon(Icons.Default.ChevronRight, null, tint = Muted)
+    Card(
+        Modifier.fillMaxWidth().clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.72f))
+    ) {
+        Row(Modifier.padding(horizontal = 15.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Accent, modifier = Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(detail, color = Muted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Muted, modifier = Modifier.size(20.dp))
         }
     }
 }
