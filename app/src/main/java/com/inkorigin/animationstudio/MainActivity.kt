@@ -991,9 +991,9 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 item { EmptyHint("No scenes yet. Add your numbered images to begin.") }
             }
             itemsIndexed(scenes) { sceneIndex, scene ->
-                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
-                    Row(Modifier.fillMaxWidth().padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(76.dp).background(Bg, RoundedCornerShape(10.dp)).clickable { previewScene.value = scene })
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(19.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(scene.uri, displaySceneLabel(scene.name), modifier = Modifier.size(82.dp).background(Bg, RoundedCornerShape(12.dp)).clickable { previewScene.value = scene }, contentScale = ContentScale.Crop)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(displaySceneLabel(scene.name), fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -1180,10 +1180,10 @@ fun SubtitlePage(
                 Text("${cues.size} TIMED CUES", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
             }
         }
-        Button(onClick = import, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import SRT file") }
+        Button(onClick = import, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import subtitle SRT", fontWeight = FontWeight.Bold) }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("SUBTITLE STYLE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("SUBTITLE STYLE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Surface(color = AccentSoft, shape = RoundedCornerShape(8.dp)) { Text("PREVIEW", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = Accent, fontSize = 8.sp, fontWeight = FontWeight.Bold) } }
                 Text("Font size: " + fontSize + " px at 1080p", color = Muted)
                 Slider(value = fontSize.toFloat(), onValueChange = { setFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
                 Text("Text color", color = Muted)
@@ -1244,8 +1244,9 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
                 Text("MP4 • H.264 • AAC", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Icon(Icons.Default.FactCheck, null, tint = Accent, modifier = Modifier.size(17.dp)) }
                 Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Text("Scene images: $count\nSRT scene titles: $srtCount\nVoiceover: ${if(audio) "Added" else "Missing"}\nAspect ratio: $aspectRatio\nResolution: $resolution", color = Muted, lineHeight = 24.sp)
                 if (srtCount == count && count > 0) {
@@ -1281,8 +1282,8 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
                 Text("H.264 video • AAC voiceover • SRT subtitle burn-in • " + frameRate + " fps", color = Muted, fontSize = 13.sp)
             }
         }
-        Button(onClick = onExport, enabled = count > 0 && srtCount == count && !exporting, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(8.dp)); Text(if (exporting) "Rendering…" else "Export MP4")
+        Button(onClick = onExport, enabled = count > 0 && srtCount == count && !exporting, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) {
+            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(9.dp)); Text(if (exporting) "Rendering your video…" else "Render & Export MP4", fontWeight = FontWeight.Bold)
         }
         if (exporting) {
             if (progress > 0) LinearProgressIndicator(progress = { progress.coerceIn(0, 100) / 100f }, modifier = Modifier.fillMaxWidth())
@@ -1333,8 +1334,16 @@ fun ActionCard(title:String, detail:String, icon: androidx.compose.ui.graphics.v
         }
     }
 }
-@Composable fun SectionTitle(text:String) { Text(text, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-@Composable fun EmptyHint(text:String) { Card(colors = CardDefaults.cardColors(containerColor = Panel)) { Text(text, Modifier.padding(18.dp), color = Muted) } }
+@Composable fun SectionTitle(text:String) { Text(text.uppercase(Locale.ROOT), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+@Composable fun EmptyHint(text:String) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.75f))) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, null, tint = Accent) }
+            Text("Nothing here yet", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(text, color = Muted, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 17.sp)
+        }
+    }
+}
 
 
 fun collectImageDocuments(folder: DocumentFile): List<DocumentFile> {
