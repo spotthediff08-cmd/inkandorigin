@@ -30,3 +30,7 @@ An offline-first Android image-to-video studio. Projects and imported assets are
 4. Extract the ZIP to find `app-debug.apk`.
 
 The workflow builds the APK automatically after commits to `main`, or can be started manually with **Run workflow**.
+
+## Test releases
+
+Signed test releases are published on the GitHub Releases page. Install the APK over the existing app to test an update; do not uninstall the app first.
