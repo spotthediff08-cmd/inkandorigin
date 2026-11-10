@@ -624,8 +624,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("YOUR CREATIVE WORKSPACE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.45.sp)
-                    Text("Create something
-remarkable.", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                    Text("Create something\nremarkable.", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
                     Text("Everything you need to turn scenes into a film.", color = Muted, fontSize = 12.sp)
                 }
                 Box(
@@ -657,8 +656,7 @@ remarkable.", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold
                                 Text("PRODUCTION SUITE", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.White.copy(alpha = 0.85f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
                             }
                         }
-                        Text("Your next story
-starts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+                        Text("Your next story\nstarts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
                         Text("Build a cinematic sequence with your images, narration and perfectly timed subtitles.", color = Color.White.copy(alpha = 0.74f), fontSize = 12.sp, lineHeight = 18.sp)
                         Button(
                             onClick = goScenes,
@@ -773,11 +771,7 @@ starts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWe
                             Text("From assets to finished video", color = Muted, fontSize = 10.sp)
                         }
                     }
-                    Text("01  Import your image folder
-02  Add your voiceover audio
-03  Import timeline SRT
-04  Add word-level SRT in Subtitles
-05  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
+                    Text("01  Import your image folder\n02  Add your voiceover audio\n03  Import timeline SRT\n04  Add word-level SRT in Subtitles\n05  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
                     Button(onClick = goScenes, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(13.dp)) {
                         Text("Manage scenes", fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(6.dp))
