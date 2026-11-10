@@ -1,7 +1,7 @@
 name: Android APK Build
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, premium-ui-redesign ]
   workflow_dispatch:
     inputs:
       publish_release:
