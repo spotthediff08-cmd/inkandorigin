@@ -406,17 +406,17 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Color(0xFF10141E), tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
-                    listOf("Home", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
-                        val destination = if (item == "Board") "Storyboard" else item
+                    listOf("Home", "Create", "Storyboard", "Captions", "Export").forEach { item ->
+                        val destination = when (item) { "Create" -> "Scenes"; "Storyboard" -> "Storyboard"; "Captions" -> "Subtitles"; else -> item }
                         NavigationBarItem(
                             selected = tab == destination,
                             onClick = { tab = destination },
                             icon = {
                                 Icon(
                                     when (item) {
-                                        "Scenes" -> Icons.Default.Collections
-                                        "Board" -> Icons.Default.Folder
-                                        "Subtitles" -> Icons.Default.Subtitles
+                                        "Create" -> Icons.Default.Collections
+                                        "Storyboard" -> Icons.Default.Folder
+                                        "Captions" -> Icons.Default.Subtitles
                                         "Export" -> Icons.Default.Movie
                                         else -> Icons.Default.Home
                                     },
@@ -540,27 +540,26 @@ fun StudioApp() {
                 ) {
                     if (savedProjects.isEmpty()) Text("No saved projects yet.")
                     savedProjects.forEach { project ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.75f))) {
-                            Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(project.name, fontWeight = FontWeight.Bold)
-                                Text(project.sceneCount.toString() + " scenes", color = Muted, fontSize = 12.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(onClick = { openProject(project.id) }) { Text("Open") }
-                                    TextButton(onClick = {
-                                        scope.launch {
-                                            val result = runCatching {
-                                                withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) }
+                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF171D2A)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                                Box(Modifier.size(48.dp).background(Brush.linearGradient(listOf(Color(0xFF6338B8), Color(0xFF236B82))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Movie, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1)
+                                    Text(project.sceneCount.toString() + " scenes  •  " + if (project.id == projectId) "Currently open" else "Saved project", color = Muted, fontSize = 10.sp)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        TextButton(onClick = { openProject(project.id) }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) { Text("Open", fontSize = 11.sp) }
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                val result = runCatching { withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) } }
+                                                result.onSuccess {
+                                                    savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+                                                    status = "Project duplicated with independent assets"
+                                                }.onFailure { status = "Duplicate failed: " + (it.message ?: "Unknown error") }
                                             }
-                                            result.onSuccess {
-                                                savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
-                                                status = "Project duplicated with independent assets"
-                                            }.onFailure {
-                                                status = "Duplicate failed: " + (it.message ?: "Unknown error")
-                                            }
-                                        }
-                                    }) { Text("Duplicate") }
-                                    TextButton(onClick = { projectPendingDelete = project }) {
-                                        Text("Delete", color = Color(0xFFFF7777))
+                                        }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) { Text("Duplicate", fontSize = 11.sp) }
+                                        TextButton(onClick = { projectPendingDelete = project }, contentPadding = PaddingValues(horizontal = 7.dp, vertical = 0.dp)) { Text("Delete", color = Color(0xFFFF7777), fontSize = 11.sp) }
                                     }
                                 }
                             }
