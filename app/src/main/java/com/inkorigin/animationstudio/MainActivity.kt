@@ -843,19 +843,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     ) {
         // Keep scene controls and preview tools fixed; only the scene list below scrolls.
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
-                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("EDIT YOUR STORY", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                    Text("Scene library", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.55).sp)
-                    Text("Arrange visuals, motion and timing.", color = Muted, fontSize = 11.sp)
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = AccentSoft, shape = RoundedCornerShape(9.dp)) { Text("${scenes.size} SCENES", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-                        Spacer(Modifier.width(7.dp))
-                        Surface(color = PanelElevated, shape = RoundedCornerShape(9.dp)) { Text(" ${"%.1f".format(scenes.sumOf { it.duration.toDouble() })} SEC ", modifier = Modifier.padding(horizontal = 5.dp, vertical = 6.dp), color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-                    }
-                }
-            }
+            StudioPageHeader("Scene library", "CREATE YOUR VIDEO", "Arrange visuals, motion and timing.", "${scenes.size} scenes  •  ${"%.1f".format(scenes.sumOf { it.duration.toDouble() })} sec")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = undo, enabled = canUndo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Undo, null); Text("Undo") }
                 OutlinedButton(onClick = redo, enabled = canRedo, modifier = Modifier.weight(1f)) { Icon(Icons.AutoMirrored.Filled.Redo, null); Text("Redo") }
@@ -1070,14 +1058,7 @@ fun SubtitlePage(
         parsing = false
     }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
-            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("CAPTIONS & STYLE", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                Text("Subtitle studio", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text(fileName, color = Muted, fontSize = 11.sp, maxLines = 2)
-                Text("${cues.size} TIMED CUES", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
-            }
-        }
+        StudioPageHeader("Subtitle studio", "CAPTIONS & STYLE", fileName, "${cues.size} timed cues")
         Button(onClick = import, modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("Import subtitle SRT", fontWeight = FontWeight.Bold) }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1134,14 +1115,7 @@ fun SubtitlePage(
 @Composable
 fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, frameRate: Int, setFrameRate:(Int)->Unit, transition: String, setTransition:(String)->Unit, exporting: Boolean, progress: Int, onCancel: () -> Unit, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
-            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("FINAL OUTPUT", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                Text("Export studio", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text("Configure quality, format and render your finished film.", color = Muted, fontSize = 11.sp)
-                Text("MP4 • H.264 • AAC", color = Color(0xFF69CBE8), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
-            }
-        }
+        StudioPageHeader("Export studio", "FINAL OUTPUT", "Configure quality and render your finished film.", "MP4  •  H.264  •  AAC")
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Icon(Icons.Default.FactCheck, null, tint = Accent, modifier = Modifier.size(17.dp)) }
@@ -1207,6 +1181,30 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
             }
         }
         Text(status, color = Muted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun StudioPageHeader(title: String, kicker: String, subtitle: String, meta: String) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(21.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF5E67B7).copy(alpha = 0.28f))
+    ) {
+        Box(
+            Modifier.fillMaxWidth().background(
+                Brush.linearGradient(listOf(Color(0xFF273E79), Color(0xFF40346F), Color(0xFF25233D)))
+            ).padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(kicker, color = Color(0xFFC5CFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp)
+                Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp)
+                Text(subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 11.sp, maxLines = 2)
+                Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                    Text(meta, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
     }
 }
 
@@ -1427,14 +1425,7 @@ fun StoryboardPage(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
-            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("IMAGE WORKFLOW", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                Text("Storyboard Pro", fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                Text("Turn contact sheets into individual scene images.", color = Muted, fontSize = 11.sp)
-                Text("BATCH IMPORT • PANEL SELECTION • AUTO BLANK CHECK", color = Color(0xFF69CBE8), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-            }
-        }
+        StudioPageHeader("Storyboard Pro", "IMAGE WORKFLOW", "Turn contact sheets into individual scene images.", "BATCH IMPORT  •  PANEL SELECTION  •  AUTO CHECK")
 
         Button(
             onClick = { storyboardFolderPicker.launch(null) },
