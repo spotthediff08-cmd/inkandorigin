@@ -613,210 +613,106 @@ fun StudioApp() {
 
 @Composable
 fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, hasLastProject: Boolean, resumeLastProject:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
-    LazyColumn(
-        modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(15.dp)
-    ) {
+    LazyColumn(modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("YOUR CREATIVE WORKSPACE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.45.sp)
-                    Text("Create something\nremarkable.", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
-                    Text("Everything you need to turn scenes into a film.", color = Muted, fontSize = 12.sp)
-                }
-                Box(
-                    Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Accent, modifier = Modifier.size(24.dp))
-                }
-            }
-        }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                shape = RoundedCornerShape(25.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6D55A4).copy(alpha = 0.55f))
-            ) {
-                Box(
-                    Modifier.fillMaxWidth().background(
-                        Brush.linearGradient(listOf(Color(0xFF302448), Color(0xFF20243A), Color(0xFF142B35)))
-                    ).padding(19.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFFE7DCFF), modifier = Modifier.size(15.dp))
-                            Text("THE STUDIO", color = Color(0xFFE7DCFF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                            Spacer(Modifier.weight(1f))
-                            Surface(color = Color.White.copy(alpha = 0.10f), shape = RoundedCornerShape(30.dp)) {
-                                Text("PRODUCTION SUITE", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.White.copy(alpha = 0.85f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
-                            }
-                        }
-                        Text("Your next story\nstarts here.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
-                        Text("Build a cinematic sequence with your images, narration and perfectly timed subtitles.", color = Color.White.copy(alpha = 0.74f), fontSize = 12.sp, lineHeight = 18.sp)
-                        Button(
-                            onClick = goScenes,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            enabled = count > 0,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
-                                contentColor = Color(0xFF211735),
-                                disabledContainerColor = Color.White.copy(alpha = 0.18f),
-                                disabledContentColor = Color.White.copy(alpha = 0.65f)
-                            )
-                        ) {
-                            Icon(Icons.Default.PlayArrow, null)
-                            Spacer(Modifier.width(7.dp))
-                            Text(if (count > 0) "Open Scene Editor" else "Import images to begin", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.weight(1f))
-                StudioStatCard("VOICEOVER", if (hasAudio) "READY" else "NOT SET", Icons.Default.Mic, Modifier.weight(1f))
-                StudioStatCard("TIMELINE SRT", if (!srt.startsWith("No ")) "READY" else "NOT SET", Icons.Default.Subtitles, Modifier.weight(1f))
-            }
-        }
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(21.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))
-            ) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 174.dp).background(Brush.linearGradient(listOf(Color(0xFF397DEB), Color(0xFF5368D9), Color(0xFF7650C9))), RoundedCornerShape(23.dp)).padding(19.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp)
-                            Text(name, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1)
-                        }
-                        Box(Modifier.size(36.dp).background(AccentSoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Edit, null, tint = Accent, modifier = Modifier.size(17.dp))
-                        }
+                        Text("ANIMATION STUDIO", color = Color.White.copy(alpha = 0.88f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Default.NotificationsNone, null, tint = Color.White, modifier = Modifier.size(21.dp))
                     }
-                    OutlinedTextField(
-                        value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(),
-                        singleLine = true, shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Accent, unfocusedBorderColor = Outline,
-                            focusedLabelColor = Accent, cursorColor = Accent
-                        )
-                    )
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Icon(Icons.Default.Info, null, tint = Accent, modifier = Modifier.size(14.dp))
-                        Text(status, color = Muted, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 3)
+                    Spacer(Modifier.height(7.dp))
+                    Text("Good morning!", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                    Text("What will you create today?", color = Color.White.copy(alpha = 0.82f), fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Your all-in-one creative workspace", color = Color.White.copy(alpha = 0.9f), fontSize = 10.sp)
                     }
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Quick Actions", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.fillMaxWidth()) {
+                    HomeQuickAction("Image", "Import scene images", Icons.Default.Image, Color(0xFF762DE0), Modifier.weight(1f), addFolder)
+                    HomeQuickAction("Video Editor", "Edit your video", Icons.Default.Videocam, Color(0xFF079F91), Modifier.weight(1f), goScenes)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.fillMaxWidth()) {
+                    HomeQuickAction("Voiceover", if (hasAudio) "Audio selected" else "Add narration", Icons.Default.Mic, Color(0xFFE32F78), Modifier.weight(1f), addAudio)
+                    HomeQuickAction("Subtitles", if (!srt.startsWith("No ")) "SRT loaded" else "Import captions", Icons.Default.Subtitles, Color(0xFF397DEB), Modifier.weight(1f), addSrt)
                 }
             }
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Your projects", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("Pick up where you left off.", color = Muted, fontSize = 11.sp)
-                }
-                TextButton(onClick = openProjects) { Text("View all", color = Accent, fontWeight = FontWeight.SemiBold) }
-            }
-            Spacer(Modifier.height(5.dp))
-            OutlinedButton(
-                onClick = openProjects, modifier = Modifier.fillMaxWidth().height(49.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
-            ) {
-                Icon(Icons.Default.FolderOpen, null, tint = Accent)
-                Spacer(Modifier.width(9.dp))
-                Text("Open project library", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.weight(1f))
-                Icon(Icons.Default.ChevronRight, null, tint = Muted)
-            }
-            if (hasLastProject) {
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = resumeLastProject, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(14.dp)) {
-                    Icon(Icons.Default.RestartAlt, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Continue last project", fontWeight = FontWeight.Bold)
+                Text("Recent Projects", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = openProjects, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+                    Text("See All", color = Color(0xFF8C9FFF), fontSize = 12.sp)
+                    Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF8C9FFF), modifier = Modifier.size(16.dp))
                 }
             }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Import your assets", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Bring your visual and audio elements into the studio.", color = Muted, fontSize = 11.sp)
-            }
-        }
-        item { ActionCard("Image folder", "$count images • Select storyboard images", Icons.Default.Folder, addFolder) }
-        item { ActionCard("Voiceover", if (hasAudio) "Narration audio selected" else "Choose your narration audio", Icons.Default.Mic, addAudio) }
-        item { ActionCard("Timeline subtitles", srt, Icons.Default.Subtitles, addSrt) }
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.TipsAndUpdates, null, tint = Accent, modifier = Modifier.size(18.dp))
-                        }
-                        Spacer(Modifier.width(9.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("A simple workflow", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("From assets to finished video", color = Muted, fontSize = 10.sp)
-                        }
+            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = if (hasLastProject) resumeLastProject else openProjects), colors = CardDefaults.cardColors(containerColor = Color(0xFF191B27)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2D40))) {
+                Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(55.dp).background(Brush.linearGradient(listOf(Color(0xFF40206F), Color(0xFF174B61))), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Movie, null, tint = Color(0xFFC6B4FF), modifier = Modifier.size(27.dp))
                     }
-                    Text("01  Import your image folder\n02  Add your voiceover audio\n03  Import timeline SRT\n04  Add word-level SRT in Subtitles\n05  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
-                    Button(onClick = goScenes, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(13.dp)) {
-                        Text("Manage scenes", fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(6.dp))
-                        Icon(Icons.Default.ArrowForward, null, modifier = Modifier.size(16.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                        Text("$count scenes  •  " + if (hasAudio) "Voiceover added" else "In progress", color = Muted, fontSize = 10.sp)
+                        Text(if (hasLastProject) "Continue editing" else "Current workspace", color = Color(0xFF9B83FF), fontSize = 10.sp, fontWeight = FontWeight.Medium)
                     }
+                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
                 }
             }
         }
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(19.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))
-            ) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151821)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    OutlinedTextField(value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Project name") }, shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF8C68F4), unfocusedBorderColor = Outline, focusedLabelColor = Color(0xFF8C68F4), cursorColor = Color(0xFF8C68F4)))
+                    Text(status, color = Muted, fontSize = 10.sp, maxLines = 2)
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151821)), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.SystemUpdate, null, tint = Color(0xFF9B83FF), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("APP UPDATES", fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.sp)
+                        Text("App updates", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
-                    Text(updateMessage, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
-                    OutlinedButton(onClick = checkUpdates, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(13.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-                        Text("Check for updates")
-                    }
-                    if (updateApkUrl != null) {
-                        OutlinedButton(onClick = { downloadUpdate(updateApkUrl) }, enabled = !downloadingUpdate, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (downloadingUpdate) "Downloading…" else "Download update")
-                        }
-                    }
-                    if (hasDownloadedUpdate) {
-                        Button(onClick = installUpdate, modifier = Modifier.fillMaxWidth()) { Text("Install update") }
+                    Text(updateMessage, color = Muted, fontSize = 10.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = checkUpdates, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("Check updates", fontSize = 11.sp) }
+                        if (updateApkUrl != null) Button(onClick = { downloadUpdate(updateApkUrl) }, enabled = !downloadingUpdate, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text(if (downloadingUpdate) "Downloading…" else "Download", fontSize = 11.sp) }
+                        if (hasDownloadedUpdate) Button(onClick = installUpdate, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("Install", fontSize = 11.sp) }
                     }
                 }
             }
         }
-        item {
-            Text(
-                "ANIMATION STUDIO  •  MADE FOR STORYTELLERS",
-                color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+        item { Text("ANIMATION STUDIO  •  MADE FOR STORYTELLERS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+    }
+}
+
+@Composable
+private fun HomeQuickAction(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier = modifier.height(116.dp).clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = color), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Box(Modifier.size(35.dp).background(Color.White.copy(alpha = 0.17f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(19.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 9.sp, maxLines = 1)
+            }
         }
     }
 }
+
 @Composable
 private fun StudioStatCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
     val statusColor = when {
