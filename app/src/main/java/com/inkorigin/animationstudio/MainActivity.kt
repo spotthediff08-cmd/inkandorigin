@@ -398,7 +398,7 @@ fun StudioApp() {
             containerColor = Bg,
             topBar = {
                 TopAppBar(
-                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Brush.linearGradient(listOf(Color(0xFF4169D8), Color(0xFF4169D8))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp)) } },
+                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Accent, modifier = Modifier.size(21.dp)) } },
                     title = { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp); Text("CREATIVE PRODUCTION SUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp) } },
                     actions = { Box(Modifier.padding(end = 14.dp).size(34.dp).background(Panel, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, contentDescription = "Studio", tint = Accent, modifier = Modifier.size(17.dp)) } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
@@ -542,8 +542,8 @@ fun StudioApp() {
                     savedProjects.forEach { project ->
                         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                                Box(Modifier.size(48.dp).background(Brush.linearGradient(listOf(Color(0xFF6338B8), Color(0xFF236B82))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Movie, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                                Box(Modifier.size(48.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(23.dp))
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1)
@@ -619,7 +619,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("ANIMATION STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                         Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.NotificationsNone, null, tint = Color.White, modifier = Modifier.size(21.dp))
+                        Icon(Icons.Default.NotificationsNone, null, tint = Muted, modifier = Modifier.size(21.dp))
                     }
                     Spacer(Modifier.height(7.dp))
                     Text("Good morning!", color = Color(0xFF171B24), fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
@@ -649,8 +649,8 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Recent Projects", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 TextButton(onClick = openProjects, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
-                    Text("See All", color = Color(0xFF8C9FFF), fontSize = 12.sp)
-                    Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF8C9FFF), modifier = Modifier.size(16.dp))
+                    Text("See All", color = Accent, fontSize = 12.sp)
+                    Icon(Icons.Default.ChevronRight, null, tint = Accent, modifier = Modifier.size(16.dp))
                 }
             }
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = if (hasLastProject) resumeLastProject else openProjects), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE4E7EC))) {
@@ -661,7 +661,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
                         Text("$count scenes  •  " + if (hasAudio) "Voiceover added" else "In progress", color = Muted, fontSize = 10.sp)
-                        Text(if (hasLastProject) "Continue editing" else "Current workspace", color = Color(0xFF9B83FF), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text(if (hasLastProject) "Continue editing" else "Current workspace", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                     }
                     Icon(Icons.Default.ChevronRight, null, tint = Muted)
                 }
@@ -671,7 +671,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    OutlinedTextField(value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Project name") }, shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF8C68F4), unfocusedBorderColor = Outline, focusedLabelColor = Color(0xFF8C68F4), cursorColor = Color(0xFF8C68F4)))
+                    OutlinedTextField(value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Project name") }, shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Outline, focusedLabelColor = Accent, cursorColor = Accent))
                     Text(status, color = Muted, fontSize = 10.sp, maxLines = 2)
                 }
             }
@@ -680,7 +680,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SystemUpdate, null, tint = Color(0xFF9B83FF), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.SystemUpdate, null, tint = Accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("App updates", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
