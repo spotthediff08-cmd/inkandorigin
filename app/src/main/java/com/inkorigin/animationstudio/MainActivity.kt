@@ -93,13 +93,13 @@ private suspend fun checkLatestStudioRelease(context: android.content.Context): 
     }
 }
 
-private val Bg = Color(0xFF090B10)
-private val Panel = Color(0xFF141925)
-private val PanelElevated = Color(0xFF1B2230)
-private val Accent = Color(0xFFB69CFF)
-private val AccentSoft = Color(0xFF302747)
-private val Muted = Color(0xFF98A2B3)
-private val Outline = Color(0xFF293244)
+private val Bg = Color(0xFFF7F8FA)
+private val Panel = Color(0xFFFFFFFF)
+private val PanelElevated = Color(0xFFF1F3F6)
+private val Accent = Color(0xFF4169D8)
+private val AccentSoft = Color(0xFFEAF0FF)
+private val Muted = Color(0xFF697586)
+private val Outline = Color(0xFFE4E7EC)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -383,11 +383,11 @@ fun StudioApp() {
         }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = Accent, onPrimary = Color(0xFF171022),
-        secondary = Color(0xFF79D7D0), onSecondary = Color(0xFF071313),
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = Accent, onPrimary = Color.White,
+        secondary = Color(0xFF238A83), onSecondary = Color.White,
         background = Bg, surface = Panel, surfaceVariant = PanelElevated,
-        onBackground = Color(0xFFF4F2FA), onSurface = Color(0xFFF4F2FA),
+        onBackground = Color(0xFF171B24), onSurface = Color(0xFF171B24),
         onSurfaceVariant = Muted, outline = Outline
     ), shapes = Shapes(
         extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
@@ -398,14 +398,14 @@ fun StudioApp() {
             containerColor = Bg,
             topBar = {
                 TopAppBar(
-                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Brush.linearGradient(listOf(Color(0xFF7652C8), Color(0xFF34264F))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp)) } },
+                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Brush.linearGradient(listOf(Color(0xFF4169D8), Color(0xFF4169D8))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp)) } },
                     title = { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp); Text("CREATIVE PRODUCTION SUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp) } },
                     actions = { Box(Modifier.padding(end = 14.dp).size(34.dp).background(Panel, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, contentDescription = "Studio", tint = Accent, modifier = Modifier.size(17.dp)) } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
                 )
             },
             bottomBar = {
-                NavigationBar(containerColor = Color(0xFF10141E), tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
+                NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
                     listOf("Home", "Create", "Storyboard", "Captions", "Export").forEach { item ->
                         val destination = when (item) { "Create" -> "Scenes"; "Storyboard" -> "Storyboard"; "Captions" -> "Subtitles"; else -> item }
                         NavigationBarItem(
@@ -424,7 +424,7 @@ fun StudioApp() {
                                 )
                             },
                             label = { Text(item, maxLines = 1, softWrap = false, fontSize = 10.sp, fontWeight = if (tab == destination) FontWeight.SemiBold else FontWeight.Normal) },
-                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Color.White, indicatorColor = Accent.copy(alpha = 0.16f), unselectedIconColor = Muted, unselectedTextColor = Muted)
+                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Color(0xFFEAF0FF), unselectedIconColor = Muted, unselectedTextColor = Muted)
                         )
                     }
                 }
@@ -529,8 +529,8 @@ fun StudioApp() {
         AlertDialog(
             onDismissRequest = { showProjects = false },
             shape = RoundedCornerShape(24.dp),
-            containerColor = Panel,
-            titleContentColor = Color.White,
+            containerColor = Color.White,
+            titleContentColor = Color(0xFF171B24),
             textContentColor = Muted,
             title = { Text("Your project library", fontWeight = FontWeight.Bold) },
             text = {
@@ -540,7 +540,7 @@ fun StudioApp() {
                 ) {
                     if (savedProjects.isEmpty()) Text("No saved projects yet.")
                     savedProjects.forEach { project ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF171D2A)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                                 Box(Modifier.size(48.dp).background(Brush.linearGradient(listOf(Color(0xFF6338B8), Color(0xFF236B82))), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
                                     Icon(Icons.Default.Movie, null, tint = Color.White, modifier = Modifier.size(23.dp))
@@ -581,8 +581,8 @@ fun StudioApp() {
         AlertDialog(
             onDismissRequest = { projectPendingDelete = null },
             shape = RoundedCornerShape(24.dp),
-            containerColor = Panel,
-            titleContentColor = Color.White,
+            containerColor = Color.White,
+            titleContentColor = Color(0xFF171B24),
             textContentColor = Muted,
             title = { Text("Delete project?", fontWeight = FontWeight.Bold) },
             text = {
@@ -614,20 +614,20 @@ fun StudioApp() {
 fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, hasLastProject: Boolean, resumeLastProject:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
         item {
-            Box(Modifier.fillMaxWidth().heightIn(min = 174.dp).background(Brush.linearGradient(listOf(Color(0xFF397DEB), Color(0xFF5368D9), Color(0xFF7650C9))), RoundedCornerShape(23.dp)).padding(19.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 148.dp).background(Color.White, RoundedCornerShape(20.dp)).padding(19.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("ANIMATION STUDIO", color = Color.White.copy(alpha = 0.88f), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                        Text("ANIMATION STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                         Spacer(Modifier.weight(1f))
                         Icon(Icons.Default.NotificationsNone, null, tint = Color.White, modifier = Modifier.size(21.dp))
                     }
                     Spacer(Modifier.height(7.dp))
-                    Text("Good morning!", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                    Text("What will you create today?", color = Color.White.copy(alpha = 0.82f), fontSize = 13.sp)
+                    Text("Good morning!", color = Color(0xFF171B24), fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                    Text("What will you create today?", color = Muted, fontSize = 13.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                        Icon(Icons.Default.AutoAwesome, null, tint = Accent, modifier = Modifier.size(13.dp))
                         Spacer(Modifier.width(5.dp))
-                        Text("Your all-in-one creative workspace", color = Color.White.copy(alpha = 0.9f), fontSize = 10.sp)
+                        Text("Your all-in-one creative workspace", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
@@ -653,10 +653,10 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                     Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF8C9FFF), modifier = Modifier.size(16.dp))
                 }
             }
-            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = if (hasLastProject) resumeLastProject else openProjects), colors = CardDefaults.cardColors(containerColor = Color(0xFF191B27)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2D40))) {
+            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = if (hasLastProject) resumeLastProject else openProjects), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE4E7EC))) {
                 Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(55.dp).background(Brush.linearGradient(listOf(Color(0xFF40206F), Color(0xFF174B61))), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Movie, null, tint = Color(0xFFC6B4FF), modifier = Modifier.size(27.dp))
+                    Box(Modifier.size(52.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(25.dp))
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
@@ -668,7 +668,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             }
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151821)), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     OutlinedTextField(value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Project name") }, shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF8C68F4), unfocusedBorderColor = Outline, focusedLabelColor = Color(0xFF8C68F4), cursorColor = Color(0xFF8C68F4)))
@@ -677,7 +677,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             }
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151821)), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.SystemUpdate, null, tint = Color(0xFF9B83FF), modifier = Modifier.size(18.dp))
@@ -699,14 +699,14 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
 
 @Composable
 private fun HomeQuickAction(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.height(116.dp).clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = color), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Box(Modifier.size(35.dp).background(Color.White.copy(alpha = 0.17f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = Color.White, modifier = Modifier.size(19.dp))
+    Card(modifier = modifier.height(108.dp).clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+        Column(Modifier.fillMaxSize().padding(13.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Box(Modifier.size(34.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Accent, modifier = Modifier.size(19.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 9.sp, maxLines = 1)
+                Text(title, color = Color(0xFF171B24), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = Muted, fontSize = 9.sp, maxLines = 1)
             }
         }
     }
