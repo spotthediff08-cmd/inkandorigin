@@ -949,7 +949,6 @@ fun HomePage(
         )
     }
 
-    if (showProfile) { /* profile is handled by the top-level dialog */ }
 }
 
 @Composable
