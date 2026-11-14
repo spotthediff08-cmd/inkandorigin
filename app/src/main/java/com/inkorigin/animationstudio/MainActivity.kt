@@ -156,6 +156,7 @@ fun StudioApp() {
     var savedProjects by remember { mutableStateOf(emptyList<ProjectSummary>()) }
     var showProjects by remember { mutableStateOf(false) }
     var projectPendingDelete by remember { mutableStateOf<ProjectSummary?>(null) }
+    var showProfile by remember { mutableStateOf(false) }
     var lastProjectId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceProjectId by remember { mutableStateOf<String?>(null) }
@@ -395,7 +396,6 @@ fun StudioApp() {
         extraLarge = RoundedCornerShape(28.dp)
     )) {
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-        var showProfile by remember { mutableStateOf(false) }
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
@@ -711,8 +711,10 @@ fun HomePage(
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var folders by remember {
-        mutableStateOf(context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
-            .getStringSet("project_folders", emptySet())?.toList()?.sorted() ?: emptyList())
+        mutableStateOf<List<String>>(
+            context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
+                .getStringSet("project_folders", emptySet<String>())?.toList()?.sorted() ?: emptyList()
+        )
     }
     var showCreateFolder by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
