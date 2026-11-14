@@ -446,6 +446,7 @@ fun StudioApp() {
                     },
                     title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
                     actions = {
+                        if (tab == "Scenes") { TextButton(onClick = { tab = "Export" }) { Text("Project Export", color = Accent, fontWeight = FontWeight.SemiBold) } }
                         IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
                             Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Person, contentDescription = "Profile", tint = Accent, modifier = Modifier.size(20.dp))
