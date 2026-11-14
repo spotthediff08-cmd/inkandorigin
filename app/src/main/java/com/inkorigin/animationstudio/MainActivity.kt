@@ -397,7 +397,7 @@ fun StudioApp() {
         Scaffold(
             containerColor = Bg,
             topBar = {
-                TopAppBar(
+                if (tab != "NewProject") TopAppBar(
                     navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Accent, modifier = Modifier.size(21.dp)) } },
                     title = { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp); Text("CREATIVE PRODUCTION SUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp) } },
                     actions = { Box(Modifier.padding(end = 14.dp).size(34.dp).background(Panel, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, contentDescription = "Studio", tint = Accent, modifier = Modifier.size(17.dp)) } },
@@ -418,7 +418,7 @@ fun StudioApp() {
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { tab = "Scenes" }, { showProjects = true }, lastProjectId != null, { lastProjectId?.let { openProject(it) } }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
+                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { createNewProject() }, { showProjects = true }, lastProjectId != null, { lastProjectId?.let { openProject(it) } }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
                     downloadingUpdate = true
                     downloadedApkUri = null
                     updateMessage = "Starting update download…"
@@ -740,15 +740,22 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
             }
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Quick Actions", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.fillMaxWidth()) {
-                    HomeQuickAction("Image", "Import scene images", Icons.Default.Image, Color(0xFF762DE0), Modifier.weight(1f), addFolder)
-                    HomeQuickAction("Video Editor", "Edit your video", Icons.Default.Videocam, Color(0xFF079F91), Modifier.weight(1f), goScenes)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.fillMaxWidth()) {
-                    HomeQuickAction("Voiceover", if (hasAudio) "Audio selected" else "Add narration", Icons.Default.Mic, Color(0xFFE32F78), Modifier.weight(1f), addAudio)
-                    HomeQuickAction("Subtitles", if (!srt.startsWith("No ")) "SRT loaded" else "Import captions", Icons.Default.Subtitles, Color(0xFF397DEB), Modifier.weight(1f), addSrt)
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = goScenes),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Add, null, tint = Accent, modifier = Modifier.size(27.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Create New Project", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("Start a fresh animation project", color = Muted, fontSize = 11.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
                 }
             }
         }
