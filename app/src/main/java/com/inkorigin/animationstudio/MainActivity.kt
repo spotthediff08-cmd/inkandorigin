@@ -636,7 +636,7 @@ private fun NewProjectPage(
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(42.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF202124))
+            Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF202124))
         }
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("New project", fontSize = 31.sp, fontWeight = FontWeight.Bold, color = Color(0xFF171717))
