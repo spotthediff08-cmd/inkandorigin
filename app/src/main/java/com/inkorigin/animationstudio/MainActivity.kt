@@ -270,7 +270,7 @@ fun StudioApp() {
                 transition = loaded.transition
                 status = "Project opened • ready to continue editing"
                 showProjects = false
-                tab = "Home"
+                tab = "Scenes"
             }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
         }
     }
@@ -464,7 +464,10 @@ fun StudioApp() {
                     savedProjects,
                     { id -> openProject(id) },
                     { createNewProject() },
-                    status
+                    status,
+                    renameProject = { project, name -> scope.launch { runCatching { withContext(Dispatchers.IO) { ProjectStore.rename(context, project.id, name) } }.onSuccess { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }; status = "Project renamed" }.onFailure { status = "Rename failed: ${it.message}" } } },
+                    deleteProject = { project -> scope.launch { runCatching { withContext(Dispatchers.IO) { ProjectStore.delete(context, project.id) } }.onSuccess { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }; status = "Project deleted" }.onFailure { status = "Delete failed: ${it.message}" } } },
+                    duplicateProject = { project -> scope.launch { runCatching { withContext(Dispatchers.IO) { ProjectStore.duplicate(context, project.id) } }.onSuccess { savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }; status = "Project duplicated" }.onFailure { status = "Duplicate failed: ${it.message}" } } }
                 )
                 "NewProject" -> NewProjectPage(
                     modifier = Modifier.fillMaxSize(),
@@ -702,186 +705,143 @@ private fun NewProjectFileCard(
 
 @Composable
 fun HomePage(
-    modifier: Modifier,
-    projects: List<ProjectSummary>,
-    openProject: (String) -> Unit,
-    createProject: () -> Unit,
-    status: String
+    modifier: Modifier, projects: List<ProjectSummary>, openProject: (String) -> Unit,
+    createProject: () -> Unit, status: String,
+    renameProject: (ProjectSummary, String) -> Unit, deleteProject: (ProjectSummary) -> Unit,
+    duplicateProject: (ProjectSummary) -> Unit
 ) {
     val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("studio_home", Context.MODE_PRIVATE) }
     var searchQuery by remember { mutableStateOf("") }
-    var folders by remember {
-        mutableStateOf<List<String>>(
-            context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
-                .getStringSet("project_folders", emptySet<String>())?.toList()?.sorted() ?: emptyList()
-        )
-    }
+    var folders by remember { mutableStateOf(prefs.getStringSet("project_folders", emptySet<String>())?.toList()?.sorted() ?: emptyList()) }
+    var assignments by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("project_folder_") }.mapValues { it.value as? String ?: "" }.filterValues { it.isNotBlank() }) }
     var showCreateFolder by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
-
-    val filteredProjects = projects.filter {
-        it.name.contains(searchQuery, ignoreCase = true)
+    var menuProject by remember { mutableStateOf<ProjectSummary?>(null) }
+    var renameTarget by remember { mutableStateOf<ProjectSummary?>(null) }
+    var renameValue by remember { mutableStateOf("") }
+    var moveTarget by remember { mutableStateOf<ProjectSummary?>(null) }
+    var deleteTarget by remember { mutableStateOf<ProjectSummary?>(null) }
+    fun assign(project: ProjectSummary, folder: String?) {
+        val key = "project_folder_${project.id}"
+        if (folder == null) prefs.edit().remove(key).apply() else prefs.edit().putString(key, folder).apply()
+        assignments = assignments.toMutableMap().apply { if (folder == null) remove(project.id) else put(project.id, folder) }
     }
+    val matching = projects.filter { it.name.contains(searchQuery, true) }
+    val inFolder = selectedFolder?.let { folder -> matching.filter { assignments[it.id] == folder } }.orEmpty()
 
     Box(modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp),
-            contentPadding = PaddingValues(top = 10.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentPadding = PaddingValues(top = 10.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("Search your projects") },
-                    leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear search")
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Outline,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    )
-                )
+                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    placeholder = { Text("Search your projects") }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) },
+                    trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, "Clear search") } },
+                    shape = RoundedCornerShape(16.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Outline, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White))
             }
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { showCreateFolder = true }) {
-                        Icon(Icons.Default.CreateNewFolder, null, tint = Accent)
-                        Spacer(Modifier.width(5.dp))
-                        Text("New folder", color = Accent)
+            if (selectedFolder == null) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("(${folders.size})", color = Muted)
+                        TextButton(onClick = { showCreateFolder = true }) { Icon(Icons.Default.CreateNewFolder, null); Spacer(Modifier.width(5.dp)); Text("Add folder") }
                     }
-                }
-                if (folders.isEmpty()) {
-                    Text("Create folders to organise your projects.", color = Muted, fontSize = 12.sp)
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        folders.forEach { folder ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().clickable { selectedFolder = folder },
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                shape = RoundedCornerShape(15.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
-                            ) {
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Folder, null, tint = Accent, modifier = Modifier.size(22.dp))
-                                    Spacer(Modifier.width(11.dp))
-                                    Text(folder, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                    if (folders.isEmpty()) Text("Create a folder to organise your projects.", color = Muted, fontSize = 12.sp)
+                    else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        folders.chunked(2).forEach { pair ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                pair.forEach { folder ->
+                                    val count = projects.count { assignments[it.id] == folder }
+                                    Card(Modifier.weight(1f).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(topStart = 12.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)) {
+                                        Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(42.dp))
+                                            Text(folder, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                            Text(count.toString(), color = Muted, fontSize = 12.sp)
+                                        }
+                                    }
                                 }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                     }
                 }
-            }
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("All", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("${filteredProjects.size} projects", color = Muted, fontSize = 11.sp)
-                }
-            }
-            if (filteredProjects.isEmpty()) {
-                item {
-                    Column(
-                        Modifier.fillMaxWidth().padding(vertical = 28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(9.dp)
-                    ) {
+                item { Row(verticalAlignment = Alignment.CenterVertically) { Text("All", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Text("${matching.size} projects", color = Muted, fontSize = 11.sp) } }
+                if (matching.isEmpty()) item {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Movie, null, tint = Muted, modifier = Modifier.size(38.dp))
                         Text(if (searchQuery.isBlank()) "No projects yet" else "No matching projects", color = Muted)
                         Text("Tap + to create your first project.", color = Muted, fontSize = 12.sp)
                     }
-                }
+                } else items(matching, key = { it.id }) { p -> ProjectHomeRow(p, assignments[p.id], { openProject(p.id) }, { menuProject = p }) }
             } else {
-                items(filteredProjects, key = { it.id }) { project ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { openProject(project.id) },
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(17.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(24.dp))
-                            }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
-                                Text("${project.sceneCount} scenes", color = Muted, fontSize = 11.sp)
-                            }
-                            Icon(Icons.Default.ChevronRight, null, tint = Muted)
-                        }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { selectedFolder = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                        Column(Modifier.weight(1f)) { Text(selectedFolder ?: "", fontSize = 20.sp, fontWeight = FontWeight.Bold); Text("${inFolder.size} projects", color = Muted, fontSize = 12.sp) }
                     }
                 }
+                if (inFolder.isEmpty()) item {
+                    Column(Modifier.fillMaxWidth().padding(top = 55.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.FolderOpen, null, tint = Muted, modifier = Modifier.size(48.dp))
+                        Text("No projects", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Tap + below to create a project.", color = Muted, fontSize = 12.sp)
+                    }
+                } else items(inFolder, key = { it.id }) { p -> ProjectHomeRow(p, selectedFolder, { openProject(p.id) }, { menuProject = p }) }
             }
-            item {
-                Text(status, color = Muted, fontSize = 10.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+            item { Text(status, color = Muted, fontSize = 10.sp, maxLines = 2) }
+        }
+        FloatingActionButton(onClick = createProject, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp), containerColor = Accent, contentColor = Color.White) { Icon(Icons.Default.Add, "Create project", modifier = Modifier.size(28.dp)) }
+    }
+    if (showCreateFolder) AlertDialog(onDismissRequest = { showCreateFolder = false; folderName = "" }, title = { Text("Create folder") },
+        text = { OutlinedTextField(value = folderName, onValueChange = { folderName = it }, singleLine = true, placeholder = { Text("Folder name") }) },
+        confirmButton = { TextButton(onClick = { val n = folderName.trim(); if (n.isNotEmpty() && folders.none { it.equals(n, true) }) { folders = (folders + n).sorted(); prefs.edit().putStringSet("project_folders", folders.toSet()).apply() }; folderName = ""; showCreateFolder = false }, enabled = folderName.isNotBlank()) { Text("Create") } },
+        dismissButton = { TextButton(onClick = { showCreateFolder = false }) { Text("Cancel") } }, containerColor = Color.White)
+    menuProject?.let { p -> AlertDialog(onDismissRequest = { menuProject = null }, title = { Text(p.name) }, text = {
+        Column {
+            TextButton(onClick = { renameTarget = p; renameValue = p.name; menuProject = null }) { Icon(Icons.Default.Edit, null); Text("Rename") }
+            TextButton(onClick = { moveTarget = p; menuProject = null }) { Icon(Icons.Default.Folder, null); Text("Move to folder") }
+            TextButton(onClick = { duplicateProject(p); menuProject = null }) { Icon(Icons.Default.ContentCopy, null); Text("Duplicate") }
+            TextButton(onClick = { deleteTarget = p; menuProject = null }) { Icon(Icons.Default.Delete, null, tint = Color.Red); Text("Delete", color = Color.Red) }
+        }
+    }, confirmButton = { TextButton(onClick = { menuProject = null }) { Text("Close") } }, containerColor = Color.White) }
+    renameTarget?.let { p -> AlertDialog(onDismissRequest = { renameTarget = null }, title = { Text("Rename project") },
+        text = { OutlinedTextField(value = renameValue, onValueChange = { renameValue = it }, singleLine = true) },
+        confirmButton = { TextButton(onClick = { if (renameValue.isNotBlank()) renameProject(p, renameValue.trim()); renameTarget = null }, enabled = renameValue.isNotBlank()) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } }, containerColor = Color.White) }
+    moveTarget?.let { p -> AlertDialog(onDismissRequest = { moveTarget = null }, title = { Text("Move to folder") }, text = {
+        Column {
+            TextButton(onClick = { assign(p, null); moveTarget = null }) { Text("Remove from folder") }
+            folders.forEach { folder -> TextButton(onClick = { assign(p, folder); moveTarget = null }) { Icon(Icons.Default.Folder, null); Text(folder) } }
+            if (folders.isEmpty()) Text("Create a folder first.", color = Muted)
+        }
+    }, confirmButton = { TextButton(onClick = { moveTarget = null }) { Text("Close") } }, containerColor = Color.White) }
+    deleteTarget?.let { p -> AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete project?") },
+        text = { Text("“${p.name}” and its project files will be deleted. This cannot be undone.") },
+        confirmButton = { TextButton(onClick = { deleteProject(p); assign(p, null); deleteTarget = null }) { Text("Delete", color = Color.Red) } },
+        dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }, containerColor = Color.White) }
+}
+
+@Composable
+private fun ProjectHomeRow(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 5.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).clickable(onClick = onOpen).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(24.dp)) }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                    Text("${project.sceneCount} scenes" + (folderName?.let { " • $it" } ?: ""), color = Muted, fontSize = 11.sp)
+                }
+            }
+            var showMenu by remember(project.id) { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "Project options", tint = Muted) }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
+                    DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
+                }
             }
         }
-        FloatingActionButton(
-            onClick = createProject,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-            containerColor = Accent,
-            contentColor = Color.White,
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Create project", modifier = Modifier.size(28.dp))
-        }
     }
-
-    if (showCreateFolder) {
-        AlertDialog(
-            onDismissRequest = { showCreateFolder = false; folderName = "" },
-            title = { Text("Create folder", fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = folderName,
-                    onValueChange = { folderName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("Folder name") }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val cleanName = folderName.trim()
-                        if (cleanName.isNotEmpty() && folders.none { it.equals(cleanName, true) }) {
-                            folders = (folders + cleanName).sorted()
-                            context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
-                                .edit().putStringSet("project_folders", folders.toSet()).apply()
-                        }
-                        folderName = ""
-                        showCreateFolder = false
-                    },
-                    enabled = folderName.isNotBlank()
-                ) { Text("Create") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreateFolder = false; folderName = "" }) { Text("Cancel") }
-            },
-            containerColor = Color.White
-        )
-    }
-
-    selectedFolder?.let { folder ->
-        AlertDialog(
-            onDismissRequest = { selectedFolder = null },
-            title = { Text(folder, fontWeight = FontWeight.Bold) },
-            text = { Text("Folder created. Project organisation and moving projects into folders will be added in a later update.") },
-            confirmButton = { TextButton(onClick = { selectedFolder = null }) { Text("Okay") } },
-            containerColor = Color.White
-        )
-    }
-
 }
 
 @Composable
