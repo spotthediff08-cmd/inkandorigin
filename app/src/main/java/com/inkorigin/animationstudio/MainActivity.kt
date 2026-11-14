@@ -394,31 +394,72 @@ fun StudioApp() {
         medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp),
         extraLarge = RoundedCornerShape(28.dp)
     )) {
+        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+        var showProfile by remember { mutableStateOf(false) }
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(
+                    drawerContainerColor = Color.White,
+                    drawerShape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Person, null, tint = Accent, modifier = Modifier.size(26.dp))
+                            }
+                            Column {
+                                Text("Animation Studio", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Your creative workspace", color = Muted, fontSize = 11.sp)
+                            }
+                        }
+                        HorizontalDivider(color = Outline)
+                        NavigationDrawerItem(
+                            label = { Text("Check for updates", fontWeight = FontWeight.SemiBold) },
+                            selected = false,
+                            icon = { Icon(Icons.Default.SystemUpdate, null, tint = Accent) },
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    updateMessage = "Checking for updates…"
+                                    updateApkUrl = null
+                                    downloadedApkUri = null
+                                    val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }
+                                    updateMessage = result.first
+                                    updateApkUrl = result.second
+                                }
+                            }
+                        )
+                        Text(updateMessage, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp))
+                    }
+                }
+            }
+        ) {
         Scaffold(
             containerColor = Bg,
             topBar = {
                 if (tab != "NewProject") TopAppBar(
-                    navigationIcon = { Box(Modifier.padding(start = 14.dp, end = 11.dp).size(40.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, contentDescription = null, tint = Accent, modifier = Modifier.size(21.dp)) } },
-                    title = { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Animation Studio", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp); Text("CREATIVE PRODUCTION SUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp) } },
-                    actions = { Box(Modifier.padding(end = 14.dp).size(34.dp).background(Panel, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.AutoAwesome, contentDescription = "Studio", tint = Accent, modifier = Modifier.size(17.dp)) } },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Open menu", tint = Color(0xFF202124))
+                        }
+                    },
+                    title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
+                    actions = {
+                        IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
+                            Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Person, contentDescription = "Profile", tint = Accent, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
                 )
             },
-            bottomBar = {
-                NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
-                    NavigationBarItem(
-                        selected = tab == "Home",
-                        onClick = { tab = "Home" },
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Home", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Color(0xFFEAF0FF), unselectedIconColor = Muted, unselectedTextColor = Muted)
-                    )
-                }
-            }
+            bottomBar = {}
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when(tab) {
-                "Home" -> HomePage(Modifier.fillMaxSize(), projectName, { projectName = it }, scenes.size, audio != null, srtName, status, updateMessage, updateApkUrl, downloadedApkUri != null, downloadingUpdate, { folderPicker.launch(null) }, { audioPicker.launch(arrayOf("audio/*")) }, { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, { createNewProject() }, { showProjects = true }, lastProjectId != null, { lastProjectId?.let { openProject(it) } }, { scope.launch { updateMessage = "Checking for updates…"; updateApkUrl = null; downloadedApkUri = null; val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }; updateMessage = result.first; updateApkUrl = result.second } }, { url -> scope.launch {
+                "Home" -> HomePage(Modifier.fillMaxSize(), savedProjects, { openProject(it) }, { createNewProject() }, status), { url -> scope.launch {
                     downloadingUpdate = true
                     downloadedApkUri = null
                     updateMessage = "Starting update download…"
@@ -526,6 +567,7 @@ fun StudioApp() {
                 )
             }
         }
+        }
     }
 
     if (showProjects) {
@@ -609,6 +651,16 @@ fun StudioApp() {
             dismissButton = {
                 TextButton(onClick = { projectPendingDelete = null }) { Text("Cancel") }
             }
+        )
+    }
+
+    if (showProfile) {
+        AlertDialog(
+            onDismissRequest = { showProfile = false },
+            title = { Text("Profile", fontWeight = FontWeight.Bold) },
+            text = { Text("Profile settings will be added later.") },
+            confirmButton = { TextButton(onClick = { showProfile = false }) { Text("Close") } },
+            containerColor = Color.White
         )
     }
 }
@@ -718,97 +770,186 @@ private fun NewProjectFileCard(
 }
 
 @Composable
-fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: Int, hasAudio: Boolean, srt: String, status: String, updateMessage: String, updateApkUrl: String?, hasDownloadedUpdate: Boolean, downloadingUpdate: Boolean, addFolder:()->Unit, addAudio:()->Unit, addSrt:()->Unit, goScenes:()->Unit, openProjects:()->Unit, hasLastProject: Boolean, resumeLastProject:()->Unit, checkUpdates:()->Unit, downloadUpdate:(String)->Unit, installUpdate:()->Unit) {
-    LazyColumn(modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
-        item {
-            Box(Modifier.fillMaxWidth().heightIn(min = 148.dp).background(Color.White, RoundedCornerShape(20.dp)).padding(19.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("ANIMATION STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                        Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.NotificationsNone, null, tint = Muted, modifier = Modifier.size(21.dp))
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    Text("Good morning!", color = Color(0xFF171B24), fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                    Text("What will you create today?", color = Muted, fontSize = 13.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = Accent, modifier = Modifier.size(13.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Your all-in-one creative workspace", color = Muted, fontSize = 10.sp)
-                    }
-                }
-            }
-        }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = goScenes),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
-            ) {
-                Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Add, null, tint = Accent, modifier = Modifier.size(27.dp))
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("Create New Project", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text("Start a fresh animation project", color = Muted, fontSize = 11.sp)
-                    }
-                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
-                }
-            }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Recent Projects", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TextButton(onClick = openProjects, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
-                    Text("See All", color = Accent, fontSize = 12.sp)
-                    Icon(Icons.Default.ChevronRight, null, tint = Accent, modifier = Modifier.size(16.dp))
-                }
-            }
-            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = if (hasLastProject) resumeLastProject else openProjects), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE4E7EC))) {
-                Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(52.dp).background(Color(0xFFEAF0FF), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(25.dp))
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
-                        Text("$count scenes  •  " + if (hasAudio) "Voiceover added" else "In progress", color = Muted, fontSize = 10.sp)
-                        Text(if (hasLastProject) "Continue editing" else "Current workspace", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                    }
-                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
-                }
-            }
-        }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("CURRENT PROJECT", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    OutlinedTextField(value = name, onValueChange = setName, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Project name") }, shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Outline, focusedLabelColor = Accent, cursorColor = Accent))
-                    Text(status, color = Muted, fontSize = 10.sp, maxLines = 2)
-                }
-            }
-        }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SystemUpdate, null, tint = Accent, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("App updates", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    }
-                    Text(updateMessage, color = Muted, fontSize = 10.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = checkUpdates, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("Check updates", fontSize = 11.sp) }
-                        if (updateApkUrl != null) Button(onClick = { downloadUpdate(updateApkUrl) }, enabled = !downloadingUpdate, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text(if (downloadingUpdate) "Downloading…" else "Download", fontSize = 11.sp) }
-                        if (hasDownloadedUpdate) Button(onClick = installUpdate, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("Install", fontSize = 11.sp) }
-                    }
-                }
-            }
-        }
-        item { Text("ANIMATION STUDIO  •  MADE FOR STORYTELLERS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+fun HomePage(
+    modifier: Modifier,
+    projects: List<ProjectSummary>,
+    openProject: (String) -> Unit,
+    createProject: () -> Unit,
+    status: String
+) {
+    val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+    var folders by remember {
+        mutableStateOf(context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
+            .getStringSet("project_folders", emptySet())?.toList()?.sorted() ?: emptyList())
     }
+    var showCreateFolder by remember { mutableStateOf(false) }
+    var folderName by remember { mutableStateOf("") }
+    var selectedFolder by remember { mutableStateOf<String?>(null) }
+
+    val filteredProjects = projects.filter {
+        it.name.contains(searchQuery, ignoreCase = true)
+    }
+
+    Box(modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp),
+            contentPadding = PaddingValues(top = 10.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Search your projects") },
+                    leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear search")
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Accent,
+                        unfocusedBorderColor = Outline,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    )
+                )
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showCreateFolder = true }) {
+                        Icon(Icons.Default.CreateNewFolder, null, tint = Accent)
+                        Spacer(Modifier.width(5.dp))
+                        Text("New folder", color = Accent)
+                    }
+                }
+                if (folders.isEmpty()) {
+                    Text("Create folders to organise your projects.", color = Muted, fontSize = 12.sp)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        folders.forEach { folder ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { selectedFolder = folder },
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                shape = RoundedCornerShape(15.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
+                            ) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Folder, null, tint = Accent, modifier = Modifier.size(22.dp))
+                                    Spacer(Modifier.width(11.dp))
+                                    Text(folder, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("All", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("${filteredProjects.size} projects", color = Muted, fontSize = 11.sp)
+                }
+            }
+            if (filteredProjects.isEmpty()) {
+                item {
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        Icon(Icons.Default.Movie, null, tint = Muted, modifier = Modifier.size(38.dp))
+                        Text(if (searchQuery.isBlank()) "No projects yet" else "No matching projects", color = Muted)
+                        Text("Tap + to create your first project.", color = Muted, fontSize = 12.sp)
+                    }
+                }
+            } else {
+                items(filteredProjects, key = { it.id }) { project ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().clickable { openProject(project.id) },
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(17.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(24.dp))
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                                Text("${project.sceneCount} scenes", color = Muted, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                        }
+                    }
+                }
+            }
+            item {
+                Text(status, color = Muted, fontSize = 10.sp, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+        FloatingActionButton(
+            onClick = createProject,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            containerColor = Accent,
+            contentColor = Color.White,
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Create project", modifier = Modifier.size(28.dp))
+        }
+    }
+
+    if (showCreateFolder) {
+        AlertDialog(
+            onDismissRequest = { showCreateFolder = false; folderName = "" },
+            title = { Text("Create folder", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = folderName,
+                    onValueChange = { folderName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Folder name") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val cleanName = folderName.trim()
+                        if (cleanName.isNotEmpty() && folders.none { it.equals(cleanName, true) }) {
+                            folders = (folders + cleanName).sorted()
+                            context.getSharedPreferences("studio_home", Context.MODE_PRIVATE)
+                                .edit().putStringSet("project_folders", folders.toSet()).apply()
+                        }
+                        folderName = ""
+                        showCreateFolder = false
+                    },
+                    enabled = folderName.isNotBlank()
+                ) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateFolder = false; folderName = "" }) { Text("Cancel") }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    selectedFolder?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { selectedFolder = null },
+            title = { Text(folder, fontWeight = FontWeight.Bold) },
+            text = { Text("Folder created. Project organisation and moving projects into folders will be added in a later update.") },
+            confirmButton = { TextButton(onClick = { selectedFolder = null }) { Text("Okay") } },
+            containerColor = Color.White
+        )
+    }
+
+    if (showProfile) { /* profile is handled by the top-level dialog */ }
 }
 
 @Composable
