@@ -230,7 +230,7 @@ fun StudioApp() {
             subtitleOutline = true
             subtitleBackground = false
             status = "New project created"
-            tab = "Home"
+            tab = "NewProject"
         }
     }
 
@@ -406,27 +406,13 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets.navigationBars) {
-                    listOf("Home", "Create", "Storyboard", "Captions", "Export").forEach { item ->
-                        val destination = when (item) { "Create" -> "Scenes"; "Storyboard" -> "Storyboard"; "Captions" -> "Subtitles"; else -> item }
-                        NavigationBarItem(
-                            selected = tab == destination,
-                            onClick = { tab = destination },
-                            icon = {
-                                Icon(
-                                    when (item) {
-                                        "Create" -> Icons.Default.Collections
-                                        "Storyboard" -> Icons.Default.Folder
-                                        "Captions" -> Icons.Default.Subtitles
-                                        "Export" -> Icons.Default.Movie
-                                        else -> Icons.Default.Home
-                                    },
-                                    contentDescription = item
-                                )
-                            },
-                            label = { Text(item, maxLines = 1, softWrap = false, fontSize = 10.sp, fontWeight = if (tab == destination) FontWeight.SemiBold else FontWeight.Normal) },
-                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Color(0xFFEAF0FF), unselectedIconColor = Muted, unselectedTextColor = Muted)
-                        )
-                    }
+                    NavigationBarItem(
+                        selected = tab == "Home",
+                        onClick = { tab = "Home" },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Accent, selectedTextColor = Accent, indicatorColor = Color(0xFFEAF0FF), unselectedIconColor = Muted, unselectedTextColor = Muted)
+                    )
                 }
             }
         ) { padding ->
@@ -507,7 +493,22 @@ fun StudioApp() {
                     } finally {
                         downloadingUpdate = false
                     }
-                } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
+                } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })                "NewProject" -> NewProjectPage(
+                    modifier = Modifier.fillMaxSize(),
+                    projectName = projectName,
+                    onNameChange = { projectName = it },
+                    imageCount = scenes.size,
+                    voiceName = if (audio != null) "Voiceover selected" else "Add Voiceover narration",
+                    timelineSrtName = srtName,
+                    captionSrtName = wordSrtName,
+                    onBack = { tab = "Home" },
+                    onSingleImage = { imagePicker.launch(arrayOf("image/*")) },
+                    onStoryboard = { tab = "Storyboard" },
+                    onVoice = { audioPicker.launch(arrayOf("audio/*")) },
+                    onTimelineSrt = { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
+                    onCaptionSrt = { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
+                    onNext = { tab = "Scenes" }
+                )
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
@@ -519,7 +520,8 @@ fun StudioApp() {
                     modifier = if (tab == "Storyboard") Modifier.fillMaxSize() else Modifier.size(0.dp),
                     scenes = scenes,
                     onScenesChange = ::updateScenes,
-                    timelineSrtText = srtText
+                    timelineSrtText = srtText,
+                    onDone = { tab = "NewProject" }
                 )
             }
         }
@@ -607,6 +609,110 @@ fun StudioApp() {
                 TextButton(onClick = { projectPendingDelete = null }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+private fun NewProjectPage(
+    modifier: Modifier,
+    projectName: String,
+    onNameChange: (String) -> Unit,
+    imageCount: Int,
+    voiceName: String,
+    timelineSrtName: String,
+    captionSrtName: String,
+    onBack: () -> Unit,
+    onSingleImage: () -> Unit,
+    onStoryboard: () -> Unit,
+    onVoice: () -> Unit,
+    onTimelineSrt: () -> Unit,
+    onCaptionSrt: () -> Unit,
+    onNext: () -> Unit
+) {
+    var showImageOptions by remember { mutableStateOf(false) }
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(42.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF202124))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("New project", fontSize = 31.sp, fontWeight = FontWeight.Bold, color = Color(0xFF171717))
+            Text("Create a new project from scratch", fontSize = 15.sp, color = Color(0xFF444444))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Name new project", fontSize = 14.sp, color = Color(0xFF555555))
+            OutlinedTextField(
+                value = projectName,
+                onValueChange = onNameChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(0.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF303030),
+                    unfocusedBorderColor = Color(0xFF777777),
+                    focusedTextColor = Color(0xFF222222),
+                    unfocusedTextColor = Color(0xFF222222),
+                    cursorColor = Accent
+                )
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            NewProjectFileCard(Icons.Default.Image, "Select Image", if (imageCount > 0) "$imageCount scene images selected" else "Add your scene images") { showImageOptions = true }
+            NewProjectFileCard(Icons.Default.Mic, "Add Voiceover narration", if (voiceName == "Add Voiceover narration") voiceName else voiceName, onVoice)
+            NewProjectFileCard(Icons.Default.Description, "Add Scene Timing SRT", timelineSrtName, onTimelineSrt)
+            NewProjectFileCard(Icons.Default.Subtitles, "Import Caption SRT", captionSrtName, onCaptionSrt)
+        }
+        Button(
+            onClick = onNext,
+            modifier = Modifier.fillMaxWidth().height(62.dp),
+            shape = RoundedCornerShape(40.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6655D8))
+        ) { Text("Next", fontSize = 25.sp, fontWeight = FontWeight.Bold) }
+    }
+    if (showImageOptions) {
+        AlertDialog(
+            onDismissRequest = { showImageOptions = false },
+            title = { Text("Select Image") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { showImageOptions = false; onStoryboard() }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Collections, null); Spacer(Modifier.width(8.dp)); Text("Storyboard")
+                    }
+                    Button(onClick = { showImageOptions = false; onSingleImage() }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Image, null); Spacer(Modifier.width(8.dp)); Text("Single Image")
+                    }
+                }
+            },
+            confirmButton = {},
+            containerColor = Color.White
+        )
+    }
+}
+
+@Composable
+private fun NewProjectFileCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    detail: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 78.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9FB)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF8C8C92))
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Color(0xFF333333), modifier = Modifier.size(29.dp))
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF252525))
+                Text(detail, fontSize = 11.sp, color = Color(0xFF66666B), maxLines = 1)
+            }
+            Icon(Icons.Default.Add, null, tint = Color(0xFF333333), modifier = Modifier.size(25.dp))
+        }
     }
 }
 
@@ -1337,7 +1443,8 @@ fun StoryboardPage(
     modifier: Modifier,
     scenes: List<Scene>,
     onScenesChange: (List<Scene>) -> Unit,
-    timelineSrtText: String
+    timelineSrtText: String,
+    onDone: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1564,6 +1671,7 @@ fun StoryboardPage(
                     val combined = (scenes + additions).sortedWith(compareBy { naturalKey(it.name) })
                     onScenesChange(applyTimelineSrt(combined, timelineSrtText))
                     status = "${additions.size} selected folder images added directly as scenes (no splitting)."
+                    onDone()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = selectedFolderUris.isNotEmpty() && !processing
@@ -1761,6 +1869,7 @@ fun StoryboardPage(
                                 compareBy<Scene> { naturalKey(it.name) }
                             )
                             onScenesChange(applyTimelineSrt(combined, timelineSrtText))
+                            onDone()
                             val cueCount = SubtitleEngine.parse(timelineSrtText).size
                             status = if (cueCount > 0 && cueCount != combined.size) {
                                 "${addedScenes.size} panels added • SRT has $cueCount cues for ${combined.size} images; matched in order • ${result.second} duplicates skipped"
