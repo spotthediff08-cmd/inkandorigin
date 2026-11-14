@@ -1661,6 +1661,7 @@ fun StoryboardPage(
                             }
                             val combined = (scenes + result.added).sortedWith(compareBy<Scene> { naturalKey(it.name) })
                             onScenesChange(applyTimelineSrt(combined, timelineSrtText))
+                            onDone()
                             status = "Batch split complete: ${result.added.size} scenes from ${targets.size} storyboards • ${result.blankSkipped} blank panels skipped • ${result.duplicateSkipped} duplicates skipped • ${result.failed} images failed"
                         } catch (e: Exception) {
                             status = "Batch split error: ${e.message ?: "Unknown error"}"
