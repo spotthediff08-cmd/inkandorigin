@@ -236,7 +236,10 @@ fun StudioApp() {
     }
 
     LaunchedEffect(Unit) {
-        savedProjects = withContext(Dispatchers.IO) { ProjectStore.list(context) }
+        savedProjects = withContext(Dispatchers.IO) {
+            ProjectStore.removeEmptyAutoDrafts(context)
+            ProjectStore.list(context)
+        }
         lastProjectId = withContext(Dispatchers.IO) { ProjectStore.lastOpenedId(context) }
         exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) }
     }
@@ -282,6 +285,10 @@ fun StudioApp() {
     }
     LaunchedEffect(projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition) {
         delay(900)
+        val alreadySaved = savedProjects.any { it.id == projectId }
+        val hasWork = scenes.isNotEmpty() || audio != null || srtText.isNotBlank() ||
+            wordSrtText.isNotBlank() || projectName != "Untitled Project"
+        if (!alreadySaved && !hasWork) return@LaunchedEffect
         runCatching {
             withContext(Dispatchers.IO) {
                 ProjectStore.save(context, projectId, projectName, scenes, audio, srtText, wordSrtText, resolution, aspectRatio, globalMotion, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition)
@@ -791,19 +798,32 @@ fun HomePage(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("(${folders.size})", color = Muted)
-                        TextButton(onClick = { showCreateFolder = true }) { Icon(Icons.Default.CreateNewFolder, null); Spacer(Modifier.width(5.dp)); Text("Add folder") }
                     }
                     if (folders.isEmpty()) Text("Create a folder to organise your projects.", color = Muted, fontSize = 12.sp)
-                    else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        folders.chunked(2).forEach { pair ->
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val folderTiles = folders + "__CREATE_FOLDER_TILE__"
+                        folderTiles.chunked(2).forEach { pair ->
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                                 pair.forEach { folder ->
-                                    val count = projects.count { assignments[it.id] == folder }
-                                    Card(Modifier.weight(1f).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(topStart = 12.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)) {
-                                        Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                            Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(42.dp))
-                                            Text(folder, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                            Text(count.toString(), color = Muted, fontSize = 12.sp)
+                                    if (folder == "__CREATE_FOLDER_TILE__") {
+                                        Card(Modifier.weight(1f).clickable { showCreateFolder = true }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F5F7)), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+                                            Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.Folder, null, tint = Muted, modifier = Modifier.fillMaxSize())
+                                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(19.dp).background(Accent, CircleShape).padding(2.dp))
+                                                }
+                                                Text("Add folder", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                                Text("Create new", color = Muted, fontSize = 12.sp)
+                                            }
+                                        }
+                                    } else {
+                                        val count = projects.count { assignments[it.id] == folder }
+                                        Card(Modifier.weight(1f).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(topStart = 12.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)) {
+                                            Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(42.dp))
+                                                Text(folder, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                                Text(count.toString(), color = Muted, fontSize = 12.sp)
+                                            }
                                         }
                                     }
                                 }
@@ -812,7 +832,7 @@ fun HomePage(
                         }
                     }
                 }
-                item { Row(verticalAlignment = Alignment.CenterVertically) { Text("All", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Text("${matching.size} projects", color = Muted, fontSize = 11.sp) } }
+                item { Row(verticalAlignment = Alignment.CenterVertically) { Text("All", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Text("(${matching.size})", color = Muted, fontSize = 12.sp) } }
                 if (matching.isEmpty()) item {
                     Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Movie, null, tint = Muted, modifier = Modifier.size(38.dp))
