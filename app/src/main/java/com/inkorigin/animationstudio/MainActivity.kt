@@ -1656,15 +1656,15 @@ fun ExportPage(
             Text("Frame rate", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text("$frameRate FPS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
-        Slider(value = frameRate.toFloat(), onValueChange = { setFrameRate(it.toInt()) }, valueRange = 24f..60f, steps = 2)
+        Slider(value = frameRate.toFloat(), onValueChange = { setFrameRate(it.toInt()) }, valueRange = 24f..60f, steps = 35)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Resolution / quality", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text(resolution, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
         Slider(
-            value = when (resolution) { "720p" -> 1f; "4K" -> 3f; else -> 2f },
-            onValueChange = { setResolution(when (it.toInt().coerceIn(1, 3)) { 1 -> "720p"; 2 -> "1080p"; else -> "4K" }) },
-            valueRange = 1f..3f, steps = 1
+            value = when (resolution) { "480p" -> 0f; "720p" -> 1f; "4K" -> 3f; else -> 2f },
+            onValueChange = { setResolution(when (it.toInt().coerceIn(0, 3)) { 0 -> "480p"; 1 -> "720p"; 2 -> "1080p"; else -> "4K" }) },
+            valueRange = 0f..3f, steps = 2
         )
         Button(onClick = onExport, enabled = !exporting, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(13.dp)) {
             Icon(Icons.Default.FileDownload, null)
