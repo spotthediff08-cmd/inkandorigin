@@ -810,7 +810,7 @@ fun HomePage(
                                             Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                                 Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
                                                     Icon(Icons.Default.Folder, null, tint = Muted, modifier = Modifier.fillMaxSize())
-                                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(19.dp).background(Accent, CircleShape).padding(2.dp))
+                                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(19.dp).background(Accent, RoundedCornerShape(50)).padding(2.dp))
                                                 }
                                                 Text("Add folder", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                                 Text("Create new", color = Muted, fontSize = 12.sp)
