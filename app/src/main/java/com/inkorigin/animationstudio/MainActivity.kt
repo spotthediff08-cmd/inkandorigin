@@ -580,9 +580,11 @@ fun StudioApp() {
                     title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
                     actions = {
                         if (tab == "Scenes") { TextButton(onClick = { tab = "Export" }) { Text("Project Export", color = Accent, fontWeight = FontWeight.SemiBold) } }
-                        IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
-                            Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Person, contentDescription = "Profile", tint = Accent, modifier = Modifier.size(20.dp))
+                        if (tab != "Scenes") {
+                            IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
+                                Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Person, contentDescription = "Profile", tint = Accent, modifier = Modifier.size(20.dp))
+                                }
                             }
                         }
                     },
@@ -1366,18 +1368,39 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             }
         }
 
-        // Contextual tool strip
-        Row(Modifier.fillMaxWidth().background(Color(0xFFF7F6FA)).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Animation", "Effects", "Crop", "Zoom", "Speed", "Color", "Audio").forEach { tool ->
-                Column(Modifier.width(65.dp).clickable {
-                    when (tool) {
-                        "Animation" -> setGlobalMotion(if (globalMotion == "Static") "Cinematic" else "Static")
-                        "Zoom" -> setGlobalMotion("Auto Zoom")
-                        "Audio" -> { }
-                    }
-                }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.size(43.dp).background(if (tool == "Animation") Accent else Color(0xFF292832), RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
-                        Text(tool.take(1), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        // Reference-inspired bottom editing toolbar
+        Row(
+            Modifier.fillMaxWidth()
+                .background(Color(0xFFF7F6FA))
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 13.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            listOf("Filter", "Trim", "FX", "Split", "Flow", "Cutout").forEach { tool ->
+                Column(
+                    Modifier.width(55.dp).clickable {
+                        when (tool) {
+                            "Trim" -> if (selectedScene != null) {
+                                val next = scenes.toMutableList()
+                                next[selectedSceneIndex] = next[selectedSceneIndex].copy(duration = (next[selectedSceneIndex].duration - 0.5f).coerceAtLeast(0.5f))
+                                update(next)
+                            }
+                            "Flow" -> setGlobalMotion(if (globalMotion == "Static") "Cinematic" else "Static")
+                            "FX" -> setGlobalMotion("Ken Burns")
+                        }
+                    },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        Modifier.size(42.dp).background(Color(0xFF292832), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            when (tool) { "Trim" -> "✂"; "FX" -> "✦"; "Split" -> "Ⅱ"; "Flow" -> "↝"; "Cutout" -> "◉"; else -> "◌" },
+                            color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold
+                        )
                     }
                     Text(tool, fontSize = 10.sp, color = Color(0xFF625E69), maxLines = 1)
                 }
