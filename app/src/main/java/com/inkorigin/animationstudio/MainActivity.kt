@@ -621,7 +621,7 @@ fun StudioApp() {
                     onCaptionSrt = { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
                     onNext = { editorReturnTab = "NewProject"; tab = "Scenes" }
                 )
-                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
+                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.fillMaxSize(), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -1124,7 +1124,7 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String, onNavigate: (String) -> Unit) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
@@ -1222,6 +1222,8 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     }
 
     var selectedSceneIndex by remember { mutableIntStateOf(0) }
+    var activeTool by remember { mutableStateOf<String?>(null) }
+    var cropMode by remember { mutableStateOf("Fill") }
     LaunchedEffect(scenes.size) { if (selectedSceneIndex >= scenes.size) selectedSceneIndex = (scenes.size - 1).coerceAtLeast(0) }
     val selectedScene = scenes.getOrNull(selectedSceneIndex)
     val totalSeconds = scenes.sumOf { it.duration.toDouble() }.toFloat()
@@ -1250,7 +1252,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         AsyncImage(model = selectedScene.uri, contentDescription = selectedScene.name,
                             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).clickable {
                                 previewPositionMs = 0L; previewPlaying = false; showTimelinePreview = true
-                            }, contentScale = ContentScale.Crop)
+                            }, contentScale = if (cropMode == "Fit") ContentScale.Fit else ContentScale.Crop)
                     } else {
                         Box(Modifier.fillMaxSize().background(Color(0xFF252633), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
                             Text("Add scene images to preview your video", color = Color.White.copy(alpha = .8f), fontSize = 13.sp)
@@ -1368,43 +1370,91 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             }
         }
 
-        // Reference-inspired bottom editing toolbar
+        // Functional editing toolbar
         Row(
-            Modifier.fillMaxWidth()
-                .background(Color(0xFFF7F6FA))
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 13.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            Modifier.fillMaxWidth().background(Color(0xFFF7F6FA))
+                .horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("Filter", "Trim", "FX", "Split", "Flow", "Cutout").forEach { tool ->
-                Column(
-                    Modifier.width(55.dp).clickable {
-                        when (tool) {
-                            "Trim" -> if (selectedScene != null) {
-                                val next = scenes.toMutableList()
-                                next[selectedSceneIndex] = next[selectedSceneIndex].copy(duration = (next[selectedSceneIndex].duration - 0.5f).coerceAtLeast(0.5f))
-                                update(next)
-                            }
-                            "Flow" -> setGlobalMotion(if (globalMotion == "Static") "Cinematic" else "Static")
-                            "FX" -> setGlobalMotion("Ken Burns")
-                        }
-                    },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Box(
-                        Modifier.size(42.dp).background(Color(0xFF292832), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            when (tool) { "Trim" -> "✂"; "FX" -> "✦"; "Split" -> "Ⅱ"; "Flow" -> "↝"; "Cutout" -> "◉"; else -> "◌" },
-                            color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold
-                        )
+            listOf("Effects", "Zoom", "Crop", "Speed", "Split", "Slide").forEach { tool ->
+                Column(Modifier.width(58.dp).clickable { activeTool = tool },
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Box(Modifier.size(42.dp).background(if (activeTool == tool) Accent else Color(0xFF292832), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                        Text(when (tool) { "Effects" -> "FX"; "Zoom" -> "⌕"; "Crop" -> "□"; "Speed" -> "↗"; "Split" -> "Ⅱ"; else -> "⇢" },
+                            color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     }
                     Text(tool, fontSize = 10.sp, color = Color(0xFF625E69), maxLines = 1)
                 }
             }
+        }
+
+        if (activeTool != null) {
+            val tool = activeTool!!
+            AlertDialog(
+                onDismissRequest = { activeTool = null },
+                title = { Text(when (tool) { "Effects" -> "Scene effects"; "Zoom" -> "Camera zoom"; "Crop" -> "Image framing"; "Speed" -> "Scene duration"; "Split" -> "Split selected scene"; else -> "Slide transition" }) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (selectedScene == null) {
+                            Text("Add and select an image scene first.", color = Muted)
+                        } else when (tool) {
+                            "Effects" -> {
+                                Text("Apply a motion effect to the selected image.")
+                                listOf("Static", "Cinematic", "Ken Burns", "Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Pan Up", "Pan Down").forEach { effect ->
+                                    TextButton(onClick = {
+                                        val next = scenes.toMutableList(); next[selectedSceneIndex] = selectedScene.copy(motion = effect); update(next); activeTool = null
+                                    }, modifier = Modifier.fillMaxWidth()) { Text(if (selectedScene.motion == effect) "✓ $effect" else effect) }
+                                }
+                            }
+                            "Zoom" -> {
+                                Text("Choose how the selected scene moves.")
+                                listOf("Static", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Auto Zoom", "Zoom+Pan").forEach { motion ->
+                                    TextButton(onClick = {
+                                        val next = scenes.toMutableList(); next[selectedSceneIndex] = selectedScene.copy(motion = motion); update(next); activeTool = null
+                                    }, modifier = Modifier.fillMaxWidth()) { Text(if (selectedScene.motion == motion) "✓ $motion" else motion) }
+                                }
+                            }
+                            "Crop" -> {
+                                Text("Choose how the image fits the preview. Fill crops edges; Fit shows the complete image.")
+                                listOf("Fill", "Fit").forEach { mode ->
+                                    TextButton(onClick = { cropMode = mode; activeTool = null }, modifier = Modifier.fillMaxWidth()) { Text(if (cropMode == mode) "✓ $mode" else mode) }
+                                }
+                            }
+                            "Speed" -> {
+                                var duration by remember(selectedScene.id) { mutableFloatStateOf(selectedScene.duration.coerceIn(0.5f, 15f)) }
+                                Text("Duration: ${String.format("%.1f", duration)} seconds")
+                                Slider(value = duration, onValueChange = { duration = it }, valueRange = 0.5f..15f)
+                                Text("Shorter duration = faster scene. Longer duration = slower scene.", fontSize = 12.sp, color = Muted)
+                                Button(onClick = {
+                                    val next = scenes.toMutableList(); next[selectedSceneIndex] = selectedScene.copy(duration = duration); update(next); activeTool = null
+                                }, modifier = Modifier.fillMaxWidth()) { Text("Apply duration") }
+                            }
+                            "Split" -> {
+                                Text("Create two consecutive clips from this image. Each clip will use half the current duration.")
+                                Button(onClick = {
+                                    val half = (selectedScene.duration / 2f).coerceAtLeast(0.5f)
+                                    val next = scenes.toMutableList()
+                                    next[selectedSceneIndex] = selectedScene.copy(duration = half)
+                                    next.add(selectedSceneIndex + 1, selectedScene.copy(id = UUID.randomUUID().toString(), duration = half))
+                                    update(next); activeTool = null
+                                }, modifier = Modifier.fillMaxWidth()) { Text("Split into two clips") }
+                            }
+                            "Slide" -> {
+                                Text("Choose the transition between scenes.")
+                                listOf("None", "Fade", "Fade through black", "Slide Left", "Slide Right").forEach { option ->
+                                    TextButton(onClick = { setTransition(option); activeTool = null }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(if (transition == option) "✓ $option" else option)
+                                    }
+                                }
+                                Text("Slide transitions apply to the project preview/export transition setting.", fontSize = 11.sp, color = Muted)
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { activeTool = null }) { Text("Close") } },
+                containerColor = Color.White
+            )
         }
 
         // Editor navigation
