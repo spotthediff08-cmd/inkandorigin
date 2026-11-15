@@ -835,7 +835,6 @@ fun HomePage(
     var showCreateFolder by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
-    var menuProject by remember { mutableStateOf<ProjectSummary?>(null) }
     var renameTarget by remember { mutableStateOf<ProjectSummary?>(null) }
     var renameValue by remember { mutableStateOf("") }
     var moveTarget by remember { mutableStateOf<ProjectSummary?>(null) }
@@ -950,7 +949,13 @@ fun HomePage(
                 } else item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         matching.forEach { p ->
-                            ProjectHomeRow(p, assignments[p.id], { openProject(p.id) }, { menuProject = p })
+                            ProjectHomeRow(
+                                p, assignments[p.id], { openProject(p.id) },
+                                { renameTarget = p; renameValue = p.name },
+                                { moveTarget = p },
+                                { duplicateProject(p) },
+                                { deleteTarget = p }
+                            )
                         }
                     }
                 }
@@ -970,7 +975,13 @@ fun HomePage(
                 } else item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         inFolder.forEach { p ->
-                            ProjectHomeRow(p, selectedFolder, { openProject(p.id) }, { menuProject = p })
+                            ProjectHomeRow(
+                                p, selectedFolder, { openProject(p.id) },
+                                { renameTarget = p; renameValue = p.name },
+                                { moveTarget = p },
+                                { duplicateProject(p) },
+                                { deleteTarget = p }
+                            )
                         }
                     }
                 }
@@ -991,14 +1002,6 @@ fun HomePage(
         text = { OutlinedTextField(value = folderName, onValueChange = { folderName = it }, singleLine = true, placeholder = { Text("Folder name") }) },
         confirmButton = { TextButton(onClick = { val n = folderName.trim(); if (n.isNotEmpty() && folders.none { it.equals(n, true) }) { folders = (folders + n).sorted(); prefs.edit().putStringSet("project_folders", folders.toSet()).apply() }; folderName = ""; showCreateFolder = false }, enabled = folderName.isNotBlank()) { Text("Create") } },
         dismissButton = { TextButton(onClick = { showCreateFolder = false }) { Text("Cancel") } }, containerColor = Color.White)
-    menuProject?.let { p -> AlertDialog(onDismissRequest = { menuProject = null }, title = { Text(p.name) }, text = {
-        Column {
-            TextButton(onClick = { renameTarget = p; renameValue = p.name; menuProject = null }) { Icon(Icons.Default.Edit, null); Text("Rename") }
-            TextButton(onClick = { moveTarget = p; menuProject = null }) { Icon(Icons.Default.Folder, null); Text("Move to folder") }
-            TextButton(onClick = { duplicateProject(p); menuProject = null }) { Icon(Icons.Default.ContentCopy, null); Text("Duplicate") }
-            TextButton(onClick = { deleteTarget = p; menuProject = null }) { Icon(Icons.Default.Delete, null, tint = Color.Red); Text("Delete", color = Color.Red) }
-        }
-    }, confirmButton = { TextButton(onClick = { menuProject = null }) { Text("Close") } }, containerColor = Color.White) }
     renameTarget?.let { p -> AlertDialog(onDismissRequest = { renameTarget = null }, title = { Text("Rename project") },
         text = { OutlinedTextField(value = renameValue, onValueChange = { renameValue = it }, singleLine = true) },
         confirmButton = { TextButton(onClick = { if (renameValue.isNotBlank()) renameProject(p, renameValue.trim()); renameTarget = null }, enabled = renameValue.isNotBlank()) { Text("Save") } },
@@ -1017,7 +1020,15 @@ fun HomePage(
 }
 
 @Composable
-private fun ProjectHomeRow(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
+private fun ProjectHomeRow(
+    project: ProjectSummary,
+    folderName: String?,
+    onOpen: () -> Unit,
+    onRename: () -> Unit,
+    onMove: () -> Unit,
+    onDuplicate: () -> Unit,
+    onRemove: () -> Unit
+) {
     Card(
         Modifier.fillMaxWidth().clickable(onClick = onOpen),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -1042,8 +1053,10 @@ private fun ProjectHomeRow(project: ProjectSummary, folderName: String?, onOpen:
                     Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
-                    DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
+                    DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false; onRename() })
+                    DropdownMenuItem(text = { Text("Move to folder") }, onClick = { showMenu = false; onMove() })
+                    DropdownMenuItem(text = { Text("Duplicate") }, onClick = { showMenu = false; onDuplicate() })
+                    DropdownMenuItem(text = { Text("Remove", color = Color.Red) }, onClick = { showMenu = false; onRemove() })
                 }
             }
         }
