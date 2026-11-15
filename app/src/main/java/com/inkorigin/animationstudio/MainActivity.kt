@@ -25,6 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -1120,7 +1122,7 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String, onNavigate: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
