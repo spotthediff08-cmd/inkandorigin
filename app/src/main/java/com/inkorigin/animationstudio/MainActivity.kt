@@ -763,8 +763,8 @@ fun HomePage(
     var renameValue by remember { mutableStateOf("") }
     var moveTarget by remember { mutableStateOf<ProjectSummary?>(null) }
     var deleteTarget by remember { mutableStateOf<ProjectSummary?>(null) }
-    var pendingFolderCreate by remember { mutableStateOf<String?>(null) }
-    var idsBeforeCreate by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var pendingFolderCreate by remember { mutableStateOf(prefs.getString("pending_project_folder", null)) }
+    var idsBeforeCreate by remember { mutableStateOf(prefs.getStringSet("pending_project_ids", emptySet<String>())?.toSet() ?: emptySet()) }
     fun assign(project: ProjectSummary, folder: String?) {
         val key = "project_folder_${project.id}"
         if (folder == null) prefs.edit().remove(key).apply() else prefs.edit().putString(key, folder).apply()
@@ -781,6 +781,7 @@ fun HomePage(
                 assign(newlyCreated, targetFolder)
                 pendingFolderCreate = null
                 idsBeforeCreate = emptySet()
+                prefs.edit().remove("pending_project_folder").remove("pending_project_ids").apply()
             }
         }
     }
@@ -856,7 +857,15 @@ fun HomePage(
             }
             item { Text(status, color = Muted, fontSize = 10.sp, maxLines = 2) }
         }
-        FloatingActionButton(onClick = { idsBeforeCreate = projects.map { it.id }.toSet(); pendingFolderCreate = selectedFolder; createProject() }, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp), containerColor = Accent, contentColor = Color.White) { Icon(Icons.Default.Add, "Create project", modifier = Modifier.size(28.dp)) }
+        FloatingActionButton(onClick = {
+            idsBeforeCreate = projects.map { it.id }.toSet()
+            pendingFolderCreate = selectedFolder
+            if (selectedFolder != null) {
+                prefs.edit().putString("pending_project_folder", selectedFolder)
+                    .putStringSet("pending_project_ids", idsBeforeCreate).apply()
+            }
+            createProject()
+        }, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp), containerColor = Accent, contentColor = Color.White) { Icon(Icons.Default.Add, "Create project", modifier = Modifier.size(28.dp)) }
     }
     if (showCreateFolder) AlertDialog(onDismissRequest = { showCreateFolder = false; folderName = "" }, title = { Text("Create folder") },
         text = { OutlinedTextField(value = folderName, onValueChange = { folderName = it }, singleLine = true, placeholder = { Text("Folder name") }) },
