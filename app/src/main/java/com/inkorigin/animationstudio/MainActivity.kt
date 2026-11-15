@@ -1069,16 +1069,24 @@ private fun ProjectHomeRow(
                 Text("${project.sceneCount} scenes" + (folderName?.let { " • $it" } ?: ""), color = Muted, fontSize = 11.sp, maxLines = 1)
             }
             var showMenu by remember(project.id) { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(38.dp)) {
-                    Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(38.dp)) {
+                        Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false; onRename() })
+                        DropdownMenuItem(text = { Text("Move to folder") }, onClick = { showMenu = false; onMove() })
+                        DropdownMenuItem(text = { Text("Duplicate") }, onClick = { showMenu = false; onDuplicate() })
+                        DropdownMenuItem(text = { Text("Remove", color = Color.Red) }, onClick = { showMenu = false; onRemove() })
+                    }
                 }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false; onRename() })
-                    DropdownMenuItem(text = { Text("Move to folder") }, onClick = { showMenu = false; onMove() })
-                    DropdownMenuItem(text = { Text("Duplicate") }, onClick = { showMenu = false; onDuplicate() })
-                    DropdownMenuItem(text = { Text("Remove", color = Color.Red) }, onClick = { showMenu = false; onRemove() })
-                }
+                Text(
+                    java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(project.updatedAt)),
+                    color = Muted,
+                    fontSize = 10.sp,
+                    maxLines = 1
+                )
             }
         }
     }
