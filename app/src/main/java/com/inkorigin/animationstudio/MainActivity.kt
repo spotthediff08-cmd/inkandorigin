@@ -799,7 +799,6 @@ fun HomePage(
                         Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("(${folders.size})", color = Muted)
                     }
-                    if (folders.isEmpty()) Text("Create a folder to organise your projects.", color = Muted, fontSize = 12.sp)
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         val folderTiles = folders + "__CREATE_FOLDER_TILE__"
                         folderTiles.chunked(2).forEach { pair ->
