@@ -53,6 +53,30 @@ object ProjectStore {
         }
     }
 
+    /**
+     * Removes only auto-saved, untouched default drafts left behind by older builds.
+     * Named projects and any project containing scenes, audio, or subtitle data are preserved.
+     */
+    @Synchronized
+    fun removeEmptyAutoDrafts(context: Context) {
+        root(context).listFiles()?.forEach { folder ->
+            val file = File(folder, "project.json")
+            if (!file.isFile) return@forEach
+            runCatching {
+                val json = JSONObject(file.readText())
+                val isUntouchedDefaultDraft =
+                    json.optString("name", "Untitled Project") == "Untitled Project" &&
+                    (json.optJSONArray("scenes")?.length() ?: 0) == 0 &&
+                    json.optString("audioPath").let { it.isBlank() || it == "null" } &&
+                    json.optString("srtText").isBlank() &&
+                    json.optString("wordSrtText").isBlank()
+                if (isUntouchedDefaultDraft && folder.name.matches(Regex("project_[0-9]+"))) {
+                    folder.deleteRecursively()
+                }
+            }
+        }
+    }
+
     @Synchronized
     fun list(context: Context): List<ProjectSummary> =
         root(context).listFiles()?.filter { File(it, "project.json").isFile }?.mapNotNull { folder ->
