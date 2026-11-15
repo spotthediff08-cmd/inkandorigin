@@ -164,6 +164,7 @@ fun StudioApp() {
     var lastProjectId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceProjectId by remember { mutableStateOf<String?>(null) }
+    var showExportSheet by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableIntStateOf(0) }
     var exportStatus by remember { mutableStateOf("Ready to export") }
@@ -573,15 +574,15 @@ fun StudioApp() {
                             }
                         }) {
                             Icon(
-                                if (tab == "Scenes" || tab == "Export") Icons.Default.ArrowBack else Icons.Default.Menu,
-                                contentDescription = if (tab == "Scenes" || tab == "Export") "Back" else "Open menu",
+                                if (tab == "Scenes") Icons.Default.ArrowBack else Icons.Default.Menu,
+                                contentDescription = if (tab == "Scenes") "Back" else "Open menu",
                                 tint = Color(0xFF202124)
                             )
                         }
                     },
-                    title = { Text(if (tab == "Export") "Export Video" else "Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
+                    title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
                     actions = {
-                        if (tab == "Scenes") { TextButton(onClick = { tab = "Export" }) { Text("Project Export", color = Accent, fontWeight = FontWeight.SemiBold) } }
+                        if (tab == "Scenes") { TextButton(onClick = { showExportSheet = true }) { Text("Export", color = Accent, fontWeight = FontWeight.SemiBold) } }
                         if (tab != "Scenes" && tab != "Export") {
                             IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
                                 Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
@@ -623,10 +624,28 @@ fun StudioApp() {
                     onCaptionSrt = { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
                     onNext = { editorReturnTab = "NewProject"; tab = "Scenes" }
                 )
-"Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, { subtitleFontSize = it }, { subtitleColor = it }, { subtitlePosition = it }, { subtitleOutline = it }, { subtitleBackground = it }, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
+"Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { showExportSheet = true }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, { wordSrtText = it }, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, { subtitleFontSize = it }, { subtitleColor = it }, { subtitlePosition = it }, { subtitleOutline = it }, { subtitleBackground = it }, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.fillMaxSize(), aspectRatio, { aspectRatio = it }, resolution, { resolution = it }, frameRate, { frameRate = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete" }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) })
+                else -> HomePage(Modifier.fillMaxSize(), savedProjects, { id -> openProject(id) }, { createNewProject() }, status)
+                }
+                if (tab == "Scenes" && showExportSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { if (!exporting) showExportSheet = false },
+                        containerColor = Color(0xFF171717),
+                        contentColor = Color.White,
+                        dragHandle = { BottomSheetDefaults.DragHandle(color = Color.LightGray) },
+                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+                    ) {
+                        ExportPage(
+                            Modifier.fillMaxWidth().heightIn(max = 460.dp),
+                            aspectRatio, { aspectRatio = it }, resolution, { resolution = it },
+                            frameRate, { frameRate = it }, exporting, exportProgress,
+                            { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" },
+                            exportStatus,
+                            { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; showExportSheet = false }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }
+                        )
+                    }
                 }
                 // Keep this page composed while other tabs are open so the uploaded
                 // storyboard, selected folder, and panel choices remain intact.
@@ -1134,7 +1153,7 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, setSubtitleFontSize: (Int) -> Unit, setSubtitleColor: (String) -> Unit, setSubtitlePosition: (String) -> Unit, setSubtitleOutline: (Boolean) -> Unit, setSubtitleBackground: (Boolean) -> Unit, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, setSrtText: (String) -> Unit, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, setSubtitleFontSize: (Int) -> Unit, setSubtitleColor: (String) -> Unit, setSubtitlePosition: (String) -> Unit, setSubtitleOutline: (Boolean) -> Unit, setSubtitleBackground: (Boolean) -> Unit, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var showTimelinePreview by remember { mutableStateOf(false) }
     var previewPlaying by remember { mutableStateOf(false) }
@@ -1411,30 +1430,6 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 TextButton(onClick = { update(scenes.filterIndexed { index, _ -> index != selectedSceneIndex }) }) { Text("Remove", color = Color(0xFFD44A55)) }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-            Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Subtitle position & style", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("Captions render in the foreground, over your scene image.", fontSize = 10.sp, color = Muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Top", "Center", "Bottom").forEach { option ->
-                        FilterChip(selected = subtitlePosition == option, onClick = { setSubtitlePosition(option) }, label = { Text(option) })
-                    }
-                }
-                Text("Font size • ${subtitleFontSize}px", fontSize = 11.sp, color = Muted)
-                Slider(value = subtitleFontSize.toFloat(), onValueChange = { setSubtitleFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("White", "Yellow", "Cyan").forEach { option ->
-                        FilterChip(selected = subtitleColor == option, onClick = { setSubtitleColor(option) }, label = { Text(option) })
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = subtitleOutline, onCheckedChange = setSubtitleOutline)
-                    Text("Outline", fontSize = 12.sp)
-                    Checkbox(checked = subtitleBackground, onCheckedChange = setSubtitleBackground)
-                    Text("Background", fontSize = 12.sp)
-                }
-            }
-        }
         Text("Automatic timing: ${captionCount} SRT cues • Voiceover: ${if (audioUri == null) "not selected" else "added"}", fontSize = 10.sp, color = Muted, modifier = Modifier.padding(horizontal = 14.dp))
         // Functional editing toolbar
         Row(
@@ -1443,11 +1438,11 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("Effects", "Zoom", "Crop", "Speed", "Split", "Slide").forEach { tool ->
+            listOf("Effects", "Zoom", "Crop", "Speed", "Split", "Slide", "Captions").forEach { tool ->
                 Column(Modifier.width(58.dp).clickable { activeTool = tool },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(Modifier.size(42.dp).background(if (activeTool == tool) Accent else Color(0xFF292832), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
-                        Text(when (tool) { "Effects" -> "FX"; "Zoom" -> "⌕"; "Crop" -> "□"; "Speed" -> "↗"; "Split" -> "Ⅱ"; else -> "⇢" },
+                        Text(when (tool) { "Effects" -> "FX"; "Zoom" -> "⌕"; "Crop" -> "□"; "Speed" -> "↗"; "Split" -> "Ⅱ"; "Slide" -> "⇢"; else -> "CC" },
                             color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     }
                     Text(tool, fontSize = 10.sp, color = Color(0xFF625E69), maxLines = 1)
@@ -1459,12 +1454,43 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             val tool = activeTool!!
             AlertDialog(
                 onDismissRequest = { activeTool = null },
-                title = { Text(when (tool) { "Effects" -> "Scene effects"; "Zoom" -> "Camera zoom"; "Crop" -> "Image framing"; "Speed" -> "Scene duration"; "Split" -> "Split selected scene"; else -> "Slide transition" }) },
+                title = { Text(when (tool) { "Effects" -> "Scene effects"; "Zoom" -> "Camera zoom"; "Crop" -> "Image framing"; "Speed" -> "Scene duration"; "Split" -> "Split selected scene"; "Slide" -> "Slide transition"; else -> "Edit captions & subtitle style" }) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (selectedScene == null) {
                             Text("Add and select an image scene first.", color = Muted)
                         } else when (tool) {
+                            "Captions" -> {
+                                Text("Edit caption text and adjust how it appears over the video.")
+                                OutlinedTextField(
+                                    value = srtText,
+                                    onValueChange = setSrtText,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 110.dp, max = 190.dp),
+                                    placeholder = { Text("SRT caption text with timestamps") },
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF222222), unfocusedTextColor = Color(0xFF222222),
+                                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
+                                    )
+                                )
+                                Text("Position", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    listOf("Top", "Center", "Bottom").forEach { option -> FilterChip(selected = subtitlePosition == option, onClick = { setSubtitlePosition(option) }, label = { Text(option) }) }
+                                }
+                                Text("Text colour", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    listOf("White", "Yellow", "Cyan").forEach { option -> FilterChip(selected = subtitleColor == option, onClick = { setSubtitleColor(option) }, label = { Text(option) }) }
+                                }
+                                Text("Font size • ${subtitleFontSize}px", fontSize = 12.sp)
+                                Slider(value = subtitleFontSize.toFloat(), onValueChange = { setSubtitleFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = subtitleOutline, onCheckedChange = setSubtitleOutline)
+                                    Text("Outline", fontSize = 12.sp)
+                                    Checkbox(checked = subtitleBackground, onCheckedChange = setSubtitleBackground)
+                                    Text("Background", fontSize = 12.sp)
+                                }
+                                Text("Changes apply to preview and final export.", color = Muted, fontSize = 11.sp)
+                            }
                             "Effects" -> {
                                 Text("Apply a motion effect to the selected image.")
                                 listOf("Static", "Cinematic", "Ken Burns", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Slow Push", "Pull Back", "Gentle Pulse", "Zoom+Pan", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Drift Left", "Drift Right", "Drift Up", "Drift Down", "Random", "Alternate").forEach { effect ->
@@ -1615,35 +1641,32 @@ fun ExportPage(
     onExport: () -> Unit
 ) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Choose your video output settings.", color = Muted, fontSize = 13.sp)
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text("ASPECT RATIO", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    listOf("16:9", "9:16").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) }
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Export settings", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("MP4", color = Color.LightGray, fontSize = 11.sp)
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text("FRAME RATE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    listOf(24, 30, 60).forEach { value -> FilterChip(selected = frameRate == value, onClick = { setFrameRate(value) }, label = { Text("$value FPS") }) }
-                }
-            }
+        Text("Aspect ratio", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("16:9", "9:16").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Text("VIDEO QUALITY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    listOf("720p", "1080p", "4K").forEach { value -> FilterChip(selected = resolution == value, onClick = { setResolution(value) }, label = { Text(value) }) }
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Frame rate", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text("$frameRate FPS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
-        Button(onClick = onExport, enabled = !exporting, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) {
+        Slider(value = frameRate.toFloat(), onValueChange = { setFrameRate(it.toInt()) }, valueRange = 24f..60f, steps = 2)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Resolution / quality", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(resolution, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+        Slider(
+            value = when (resolution) { "720p" -> 1f; "4K" -> 3f; else -> 2f },
+            onValueChange = { setResolution(when (it.toInt().coerceIn(1, 3)) { 1 -> "720p"; 2 -> "1080p"; else -> "4K" }) },
+            valueRange = 1f..3f, steps = 1
+        )
+        Button(onClick = onExport, enabled = !exporting, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(13.dp)) {
             Icon(Icons.Default.FileDownload, null)
             Spacer(Modifier.width(9.dp))
             Text(if (exporting) "Exporting…" else "Export Video", fontWeight = FontWeight.Bold)
@@ -1656,7 +1679,7 @@ fun ExportPage(
                 TextButton(onClick = onCancel) { Text("Cancel") }
             }
         }
-        Text(exportStatus, color = if (exportStatus.startsWith("Export failed")) Color(0xFFCC5555) else Accent, fontSize = 13.sp)
+        Text(exportStatus, color = if (exportStatus.startsWith("Export failed")) Color(0xFFFF7777) else Color.LightGray, fontSize = 11.sp)
     }
 }
 
