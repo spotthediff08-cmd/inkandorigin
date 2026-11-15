@@ -170,6 +170,7 @@ fun StudioApp() {
     var updateApkUrl by remember { mutableStateOf<String?>(null) }
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     var downloadingUpdate by remember { mutableStateOf(false) }
+    var updateDownloadProgress by remember { mutableIntStateOf(0) }
 
     suspend fun saveCurrentProjectIfNeeded() {
         val alreadySaved = savedProjects.any { it.id == projectId }
@@ -432,6 +433,7 @@ fun StudioApp() {
                                     updateApkUrl = null
                                     downloadedApkUri = null
                                     downloadingUpdate = false
+                                    updateDownloadProgress = 0
                                     val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }
                                     updateMessage = result.first
                                     updateApkUrl = result.second
@@ -439,7 +441,16 @@ fun StudioApp() {
                             }
                         )
                         Text(updateMessage, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp))
-                        if (updateApkUrl != null) {
+                        if (downloadingUpdate) {
+                            LinearProgressIndicator(
+                                progress = { updateDownloadProgress / 100f },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                                color = Accent
+                            )
+                            Text("Downloading update: $updateDownloadProgress%", color = Accent, fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 14.dp))
+                        }
+                        if (updateApkUrl != null && downloadedApkUri == null) {
                             Button(
                                 onClick = {
                                     val apkUrl = updateApkUrl
@@ -454,10 +465,48 @@ fun StudioApp() {
                                                 .setAllowedOverMetered(true)
                                                 .setAllowedOverRoaming(false)
                                             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                                            manager.enqueue(request)
+                                            val downloadId = manager.enqueue(request)
                                             downloadingUpdate = true
-                                            updateMessage = "Update downloading. Tap the Android download notification when it finishes to install."
+                                            updateDownloadProgress = 0
+                                            updateMessage = "Downloading the latest version…"
+                                            scope.launch {
+                                                while (downloadingUpdate) {
+                                                    val result = withContext(Dispatchers.IO) {
+                                                        manager.query(DownloadManager.Query().setFilterById(downloadId)).use { cursor ->
+                                                            if (cursor.moveToFirst()) {
+                                                                val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                                                                val downloadedIndex = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                                                                val totalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                                                                val downloadStatus = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
+                                                                val downloaded = if (downloadedIndex >= 0) cursor.getLong(downloadedIndex) else 0L
+                                                                val total = if (totalIndex >= 0) cursor.getLong(totalIndex) else 0L
+                                                                val percent = if (total > 0) ((downloaded * 100L) / total).toInt().coerceIn(0, 100) else 0
+                                                                Triple(downloadStatus, percent, total)
+                                                            } else Triple(-1, 0, 0L)
+                                                        }
+                                                    }
+                                                    updateDownloadProgress = result.second
+                                                    when (result.first) {
+                                                        DownloadManager.STATUS_SUCCESSFUL -> {
+                                                            downloadedApkUri = manager.getUriForDownloadedFile(downloadId)
+                                                            downloadingUpdate = false
+                                                            updateDownloadProgress = 100
+                                                            updateMessage = if (downloadedApkUri != null) "Download complete. Tap Install Update to continue." else "Download finished, but the APK could not be opened."
+                                                            break
+                                                        }
+                                                        DownloadManager.STATUS_FAILED -> {
+                                                            downloadingUpdate = false
+                                                            updateMessage = "Download failed. Please try again."
+                                                            break
+                                                        }
+                                                        DownloadManager.STATUS_PAUSED -> updateMessage = "Download paused. Waiting for connection…"
+                                                        else -> Unit
+                                                    }
+                                                    delay(500)
+                                                }
+                                            }
                                         } catch (error: Exception) {
+                                            downloadingUpdate = false
                                             updateMessage = "Could not start download: ${error.localizedMessage ?: "please try again"}"
                                         }
                                     }
@@ -468,7 +517,34 @@ fun StudioApp() {
                             ) {
                                 Icon(Icons.Default.Download, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (downloadingUpdate) "Download started" else "Download & Install Update")
+                                Text(if (downloadingUpdate) "Downloading…" else "Download Update")
+                            }
+                        }
+                        if (downloadedApkUri != null) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                                            val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                                            context.startActivity(settingsIntent)
+                                            updateMessage = "Allow installs from this app, then tap Install Update again."
+                                        } else {
+                                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(downloadedApkUri, "application/vnd.android.package-archive")
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(installIntent)
+                                        }
+                                    } catch (error: Exception) {
+                                        updateMessage = "Could not open installer: ${error.localizedMessage ?: "please try again"}"
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                            ) {
+                                Icon(Icons.Default.InstallMobile, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Install Update")
                             }
                         }
                     }
@@ -766,6 +842,7 @@ fun HomePage(
     var deleteTarget by remember { mutableStateOf<ProjectSummary?>(null) }
     var pendingFolderCreate by remember { mutableStateOf(prefs.getString("pending_project_folder", null)) }
     var idsBeforeCreate by remember { mutableStateOf(prefs.getStringSet("pending_project_ids", emptySet<String>())?.toSet() ?: emptySet()) }
+    var foldersExpanded by remember { mutableStateOf(true) }
     fun assign(project: ProjectSummary, folder: String?) {
         val key = "project_folder_${project.id}"
         if (folder == null) prefs.edit().remove(key).apply() else prefs.edit().putString(key, folder).apply()
@@ -800,35 +877,65 @@ fun HomePage(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Folders", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text("(${folders.size})", color = Muted)
+                        TextButton(onClick = { foldersExpanded = !foldersExpanded }) {
+                            Text(if (foldersExpanded) "Show less" else "Show all", color = Accent, fontWeight = FontWeight.SemiBold)
+                        }
                     }
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val folderTiles = folders + "__CREATE_FOLDER_TILE__"
-                        folderTiles.chunked(2).forEach { pair ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                pair.forEach { folder ->
-                                    if (folder == "__CREATE_FOLDER_TILE__") {
-                                        Card(Modifier.weight(1f).clickable { showCreateFolder = true }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F5F7)), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-                                            Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                                                    Icon(Icons.Default.Folder, null, tint = Muted, modifier = Modifier.fillMaxSize())
-                                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(19.dp).background(Accent, RoundedCornerShape(50)).padding(2.dp))
+                    if (foldersExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            val folderTiles = folders + "__CREATE_FOLDER_TILE__"
+                            folderTiles.chunked(2).forEach { pair ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    pair.forEach { folder ->
+                                        if (folder == "__CREATE_FOLDER_TILE__") {
+                                            Card(Modifier.weight(1f).clickable { showCreateFolder = true }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F5F7)), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+                                                Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                    Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                                                        Icon(Icons.Default.Folder, null, tint = Muted, modifier = Modifier.fillMaxSize())
+                                                        Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(19.dp).background(Accent, RoundedCornerShape(50)).padding(2.dp))
+                                                    }
+                                                    Text("Add folder", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                                    Text("Create new", color = Muted, fontSize = 12.sp)
                                                 }
-                                                Text("Add folder", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                                Text("Create new", color = Muted, fontSize = 12.sp)
                                             }
-                                        }
-                                    } else {
-                                        val count = projects.count { assignments[it.id] == folder }
-                                        Card(Modifier.weight(1f).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(topStart = 12.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)) {
-                                            Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                                Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(42.dp))
-                                                Text(folder, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                                Text(count.toString(), color = Muted, fontSize = 12.sp)
+                                        } else {
+                                            val count = projects.count { assignments[it.id] == folder }
+                                            Card(Modifier.weight(1f).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(topStart = 12.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 18.dp)) {
+                                                Column(Modifier.fillMaxWidth().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                    Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(42.dp))
+                                                    Text(folder, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                                    Text(count.toString(), color = Muted, fontSize = 12.sp)
+                                                }
                                             }
                                         }
                                     }
+                                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                                 }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp), modifier = Modifier.fillMaxWidth()) {
+                            items(folders, key = { it }) { folder ->
+                                val count = projects.count { assignments[it.id] == folder }
+                                Card(Modifier.width(142.dp).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(18.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(38.dp))
+                                        Text(folder, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        Text("$count projects", color = Muted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                            item {
+                                Card(Modifier.width(142.dp).clickable { showCreateFolder = true }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F5F7)), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Folder, null, tint = Muted, modifier = Modifier.fillMaxSize())
+                                            Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp).background(Accent, RoundedCornerShape(50)).padding(2.dp))
+                                        }
+                                        Text("Add folder", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("Create new", color = Muted, fontSize = 11.sp)
+                                    }
+                                }
                             }
                         }
                     }
@@ -841,13 +948,9 @@ fun HomePage(
                         Text("Tap + to create your first project.", color = Muted, fontSize = 12.sp)
                     }
                 } else item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(vertical = 4.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(matching, key = { it.id }) { p ->
-                            ProjectHomeCard(p, assignments[p.id], { openProject(p.id) }, { menuProject = p })
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        matching.forEach { p ->
+                            ProjectHomeRow(p, assignments[p.id], { openProject(p.id) }, { menuProject = p })
                         }
                     }
                 }
@@ -865,13 +968,9 @@ fun HomePage(
                         Text("Tap + below to create a project.", color = Muted, fontSize = 12.sp)
                     }
                 } else item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(vertical = 4.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(inFolder, key = { it.id }) { p ->
-                            ProjectHomeCard(p, selectedFolder, { openProject(p.id) }, { menuProject = p })
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        inFolder.forEach { p ->
+                            ProjectHomeRow(p, selectedFolder, { openProject(p.id) }, { menuProject = p })
                         }
                     }
                 }
@@ -918,35 +1017,35 @@ fun HomePage(
 }
 
 @Composable
-private fun ProjectHomeCard(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
+private fun ProjectHomeRow(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
     Card(
-        Modifier.width(220.dp).clickable(onClick = onOpen),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(17.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
     ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(22.dp))
-                }
-                Spacer(Modifier.weight(1f))
-                var showMenu by remember(project.id) { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) {
-                        Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
-                        DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
-                    }
-                }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(Modifier.size(46.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(24.dp))
             }
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
                 Text("${project.sceneCount} scenes" + (folderName?.let { " • $it" } ?: ""), color = Muted, fontSize = 11.sp, maxLines = 1)
             }
-            Text("Tap to open editor", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+            var showMenu by remember(project.id) { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(38.dp)) {
+                    Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
+                    DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
+                }
+            }
         }
     }
 }
