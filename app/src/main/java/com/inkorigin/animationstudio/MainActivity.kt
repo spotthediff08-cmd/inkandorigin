@@ -420,10 +420,10 @@ fun StudioApp() {
                             icon = { Icon(Icons.Default.SystemUpdate, null, tint = Accent) },
                             onClick = {
                                 scope.launch {
-                                    drawerState.close()
                                     updateMessage = "Checking for updates…"
                                     updateApkUrl = null
                                     downloadedApkUri = null
+                                    downloadingUpdate = false
                                     val result = withContext(Dispatchers.IO) { checkLatestStudioRelease(context) }
                                     updateMessage = result.first
                                     updateApkUrl = result.second
@@ -431,6 +431,38 @@ fun StudioApp() {
                             }
                         )
                         Text(updateMessage, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp))
+                        if (updateApkUrl != null) {
+                            Button(
+                                onClick = {
+                                    val apkUrl = updateApkUrl
+                                    if (apkUrl != null && !downloadingUpdate) {
+                                        try {
+                                            val request = DownloadManager.Request(Uri.parse(apkUrl))
+                                                .setTitle("Animation Studio update")
+                                                .setDescription("Downloading the latest Animation Studio APK")
+                                                .setMimeType("application/vnd.android.package-archive")
+                                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "AnimationStudio-update.apk")
+                                                .setAllowedOverMetered(true)
+                                                .setAllowedOverRoaming(false)
+                                            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                                            manager.enqueue(request)
+                                            downloadingUpdate = true
+                                            updateMessage = "Update downloading. Tap the Android download notification when it finishes to install."
+                                        } catch (error: Exception) {
+                                            updateMessage = "Could not start download: ${error.localizedMessage ?: "please try again"}"
+                                        }
+                                    }
+                                },
+                                enabled = !downloadingUpdate,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                            ) {
+                                Icon(Icons.Default.Download, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (downloadingUpdate) "Download started" else "Download & Install Update")
+                            }
+                        }
                     }
                 }
             }
