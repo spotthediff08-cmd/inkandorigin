@@ -1257,7 +1257,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
     val totalSeconds = scenes.sumOf { it.duration.toDouble() }.toFloat()
     val captionCount = previewCues.size
     Column(
-        modifier = modifier.fillMaxSize().background(Color(0xFFF7F6FA)),
+        modifier = modifier.fillMaxSize().background(Color(0xFFF7F6FA)).verticalScroll(rememberScrollState()).padding(bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         // Single-screen preview: playback stays inside this editor.
