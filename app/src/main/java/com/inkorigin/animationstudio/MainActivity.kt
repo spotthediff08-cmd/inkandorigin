@@ -1259,7 +1259,18 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             }
             val previewSceneDuration = previewSceneNow?.duration?.coerceAtLeast(0.5f)?.times(1000f) ?: 1f
             val previewProgress = (previewSceneElapsed / previewSceneDuration).coerceIn(0f, 1f)
-            val previewMotion = previewSceneNow?.motion ?: "Static"
+            val rawPreviewMotion = previewSceneNow?.motion ?: "Static"
+            val previewMotion = when (rawPreviewMotion) {
+                "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[previewIndex % 5]
+                "Alternate" -> if (previewIndex % 2 == 0) "Zoom In" else "Zoom Out"
+                else -> rawPreviewMotion
+            }
+            val previewSlideProgress = (previewSceneElapsed / 450f).coerceIn(0f, 1f)
+            val previewSlideOffset = when (transition) {
+                "Slide Left" -> 1.8f * (1f - previewSlideProgress)
+                "Slide Right" -> -1.8f * (1f - previewSlideProgress)
+                else -> 0f
+            }
             val previewScale = when (previewMotion) {
                 "Static" -> 1.04f
                 "Zoom Out", "Pull Back" -> 1.16f - 0.12f * previewProgress
@@ -1292,7 +1303,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).graphicsLayer {
                                 scaleX = previewScale
                                 scaleY = previewScale
-                                translationX = size.width * previewPanX
+                                translationX = size.width * (previewPanX + previewSlideOffset)
                                 translationY = size.height * previewPanY
                             }, contentScale = if (cropMode == "Fit") ContentScale.Fit else ContentScale.Crop)
                         activePreviewCue?.let { cue ->
