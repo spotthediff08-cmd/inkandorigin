@@ -135,6 +135,23 @@ object VideoExportEngine {
         videoEffects += Presentation.createForWidthAndHeight(
             widthHeight.first, widthHeight.second, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
         )
+        // Apply slide movement after presentation/cropping; applying it to each
+        // source image before Presentation lets the crop step cancel the movement.
+        if ((settings.transition == "Slide Left" || settings.transition == "Slide Right") && sceneBoundariesMs.isNotEmpty()) {
+            videoEffects += MatrixTransformation { presentationTimeUs ->
+                val timeMs = presentationTimeUs / 1000L
+                val sceneIndex = sceneBoundariesMs.count { timeMs >= it }
+                val slideOffset = if (sceneIndex == 0) {
+                    0f
+                } else {
+                    val sceneStartMs = sceneBoundariesMs[sceneIndex - 1]
+                    val progress = ((timeMs - sceneStartMs).toFloat() / 700f).coerceIn(0f, 1f)
+                    val direction = if (settings.transition == "Slide Left") 1f else -1f
+                    direction * 2.2f * (1f - progress)
+                }
+                android.graphics.Matrix().apply { setTranslate(slideOffset, 0f) }
+            }
+        }
         val overlays = mutableListOf<androidx.media3.effect.TextureOverlay>()
         if (settings.transition == "Fade through black" && sceneBoundariesMs.isNotEmpty()) {
             overlays += SceneFadeOverlay(sceneBoundariesMs)
@@ -223,12 +240,6 @@ object VideoExportEngine {
                 "Ken Burns", "Cinematic", "Zoom+Pan", "Slow Push" ->
                     matrix.postTranslate(-0.025f + 0.05f * progress, 0.012f - 0.024f * progress)
                 else -> Unit
-            }
-            // Slide transitions animate each incoming still image from the selected side.
-            val slideProgress = (presentationTimeUs / 450_000f).coerceIn(0f, 1f)
-            when (transition) {
-                "Slide Left" -> matrix.postTranslate(1.8f * (1f - slideProgress), 0f)
-                "Slide Right" -> matrix.postTranslate(-1.8f * (1f - slideProgress), 0f)
             }
             matrix
         }
