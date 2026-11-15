@@ -621,7 +621,7 @@ fun StudioApp() {
                     onCaptionSrt = { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
                     onNext = { editorReturnTab = "NewProject"; tab = "Scenes" }
                 )
-                "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
+"Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, { subtitleFontSize = it }, { subtitleColor = it }, { subtitlePosition = it }, { subtitleOutline = it }, { subtitleBackground = it }, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
                 else -> ExportPage(Modifier.fillMaxSize(), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
@@ -1124,7 +1124,7 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
 }
 
 @Composable
-fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
+fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, setSubtitleFontSize: (Int) -> Unit, setSubtitleColor: (String) -> Unit, setSubtitlePosition: (String) -> Unit, setSubtitleOutline: (Boolean) -> Unit, setSubtitleBackground: (Boolean) -> Unit, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
@@ -1315,61 +1315,39 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             }
         }
 
-        // Multi-track timeline
-        Column(Modifier.weight(1f).fillMaxWidth().background(Color.White).padding(horizontal = 13.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        // Scene controls and subtitle styling (SRT remains the automatic timing source)
+        if (selectedScene != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("2. Timeline Editor", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF383541), modifier = Modifier.weight(1f))
-                IconButton(onClick = { previewPositionMs = 0L; showTimelinePreview = true }, enabled = scenes.isNotEmpty()) { Icon(Icons.Default.PlayArrow, "Play timeline", tint = Accent) }
-                IconButton(onClick = undo, enabled = canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = Color(0xFF77727F)) }
-                IconButton(onClick = redo, enabled = canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, "Redo", tint = Color(0xFF77727F)) }
+                Text("Selected: Scene ${selectedSceneIndex + 1}", fontSize = 11.sp, color = Muted, modifier = Modifier.weight(1f))
+                TextButton(onClick = { setGlobalMotion(selectedScene.motion) }) { Text("Use scene motion") }
+                TextButton(onClick = { update(scenes.filterIndexed { index, _ -> index != selectedSceneIndex }) }) { Text("Remove", color = Color(0xFFD44A55)) }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Images", modifier = Modifier.width(76.dp), fontSize = 11.sp, color = Color(0xFF77727F))
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    scenes.forEachIndexed { index, scene ->
-                        Box(Modifier.width((scene.duration.coerceAtLeast(1f) * 29f).dp.coerceIn(62.dp, 125.dp)).height(48.dp).clip(RoundedCornerShape(7.dp)).clickable { selectedSceneIndex = index }) {
-                            AsyncImage(model = scene.uri, contentDescription = scene.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            Text("${index + 1}", color = Color.White, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomStart).background(Color.Black.copy(alpha = .55f)).padding(horizontal = 5.dp))
-                        }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+            Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Subtitle position & style", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Captions render in the foreground, over your scene image.", fontSize = 10.sp, color = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Top", "Center", "Bottom").forEach { option ->
+                        FilterChip(selected = subtitlePosition == option, onClick = { setSubtitlePosition(option) }, label = { Text(option) })
                     }
                 }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Timing SRT", modifier = Modifier.width(76.dp), fontSize = 11.sp, color = Color(0xFF77727F))
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    scenes.forEachIndexed { index, scene ->
-                        Box(Modifier.weight(scene.duration.coerceAtLeast(.5f)).height(30.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFE9E5F5)).clickable { selectedSceneIndex = index }, contentAlignment = Alignment.Center) {
-                            Text("${scene.duration}s", fontSize = 9.sp, color = Color(0xFF51476A), maxLines = 1)
-                        }
+                Text("Font size • ${subtitleFontSize}px", fontSize = 11.sp, color = Muted)
+                Slider(value = subtitleFontSize.toFloat(), onValueChange = { setSubtitleFontSize(it.toInt()) }, valueRange = 28f..112f, steps = 20)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("White", "Yellow", "Cyan").forEach { option ->
+                        FilterChip(selected = subtitleColor == option, onClick = { setSubtitleColor(option) }, label = { Text(option) })
                     }
                 }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("3. Voice", modifier = Modifier.width(76.dp), fontSize = 11.sp, color = Color(0xFF77727F))
-                Box(Modifier.weight(1f).height(49.dp).clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1F0F5)), contentAlignment = Alignment.CenterStart) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        repeat(44) { n -> Box(Modifier.width(2.dp).height(((n * 17 + 11) % 27 + 7).dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF8A8792))) }
-                    }
-                    if (audioUri == null) Text("No voiceover added", color = Color(0xFF88838F), fontSize = 10.sp, modifier = Modifier.align(Alignment.Center))
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("4. Captions", modifier = Modifier.width(76.dp), fontSize = 11.sp, color = Color(0xFF77727F))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.fillMaxWidth().height(13.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFFE8A3C2)))
-                    Box(Modifier.fillMaxWidth().height(13.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF9DDCCB)))
-                    if (captionCount == 0) Text("No caption SRT imported", fontSize = 9.sp, color = Color(0xFF88838F))
-                }
-            }
-            if (selectedScene != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Selected: Scene ${selectedSceneIndex + 1}", fontSize = 11.sp, color = Muted, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { setGlobalMotion(selectedScene.motion) }) { Text("Use scene motion") }
-                    TextButton(onClick = { update(scenes.filterIndexed { index, _ -> index != selectedSceneIndex }) }) { Text("Remove", color = Color(0xFFD44A55)) }
+                    Checkbox(checked = subtitleOutline, onCheckedChange = setSubtitleOutline)
+                    Text("Outline", fontSize = 12.sp)
+                    Checkbox(checked = subtitleBackground, onCheckedChange = setSubtitleBackground)
+                    Text("Background", fontSize = 12.sp)
                 }
             }
         }
-
+        Text("Automatic timing: ${captionCount} SRT cues • Voiceover: ${if (audioUri == null) "not selected" else "added"}", fontSize = 10.sp, color = Muted, modifier = Modifier.padding(horizontal = 14.dp))
         // Functional editing toolbar
         Row(
             Modifier.fillMaxWidth().background(Color(0xFFF7F6FA))
@@ -1457,15 +1435,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
             )
         }
 
-        // Editor navigation
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf("Home", "Create", "Storyboard", "Captions", "Export").forEach { destination ->
-                Column(Modifier.weight(1f).clickable { onNavigate(if (destination == "Create") "Scenes" else if (destination == "Captions") "Subtitles" else destination) }.padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(destination.take(1), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (destination == "Create") Accent else Color(0xFF77727F))
-                    Text(destination, fontSize = 9.sp, color = if (destination == "Create") Accent else Color(0xFF77727F), maxLines = 1)
-                }
-            }
-        }
+
     }
 
     if (showTimelinePreview && scenes.isNotEmpty()) {
