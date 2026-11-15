@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -839,7 +840,17 @@ fun HomePage(
                         Text(if (searchQuery.isBlank()) "No projects yet" else "No matching projects", color = Muted)
                         Text("Tap + to create your first project.", color = Muted, fontSize = 12.sp)
                     }
-                } else items(matching, key = { it.id }) { p -> ProjectHomeRow(p, assignments[p.id], { openProject(p.id) }, { menuProject = p }) }
+                } else item {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(matching, key = { it.id }) { p ->
+                            ProjectHomeCard(p, assignments[p.id], { openProject(p.id) }, { menuProject = p })
+                        }
+                    }
+                }
             } else {
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -853,7 +864,17 @@ fun HomePage(
                         Text("No projects", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                         Text("Tap + below to create a project.", color = Muted, fontSize = 12.sp)
                     }
-                } else items(inFolder, key = { it.id }) { p -> ProjectHomeRow(p, selectedFolder, { openProject(p.id) }, { menuProject = p }) }
+                } else item {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(inFolder, key = { it.id }) { p ->
+                            ProjectHomeCard(p, selectedFolder, { openProject(p.id) }, { menuProject = p })
+                        }
+                    }
+                }
             }
             item { Text(status, color = Muted, fontSize = 10.sp, maxLines = 2) }
         }
@@ -897,24 +918,35 @@ fun HomePage(
 }
 
 @Composable
-private fun ProjectHomeRow(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
-        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 5.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clickable(onClick = onOpen).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(48.dp).background(AccentSoft, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(24.dp)) }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
-                    Text("${project.sceneCount} scenes" + (folderName?.let { " • $it" } ?: ""), color = Muted, fontSize = 11.sp)
+private fun ProjectHomeCard(project: ProjectSummary, folderName: String?, onOpen: () -> Unit, onMenu: () -> Unit) {
+    Card(
+        Modifier.width(220.dp).clickable(onClick = onOpen),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(17.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Movie, null, tint = Accent, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.weight(1f))
+                var showMenu by remember(project.id) { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) {
+                        Icon(Icons.Default.MoreHoriz, "Project options", tint = Muted)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
+                        DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
+                    }
                 }
             }
-            var showMenu by remember(project.id) { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "Project options", tint = Muted) }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Open editor") }, onClick = { showMenu = false; onOpen() })
-                    DropdownMenuItem(text = { Text("More options") }, onClick = { showMenu = false; onMenu() })
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(project.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                Text("${project.sceneCount} scenes" + (folderName?.let { " • $it" } ?: ""), color = Muted, fontSize = 11.sp, maxLines = 1)
             }
+            Text("Tap to open editor", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
