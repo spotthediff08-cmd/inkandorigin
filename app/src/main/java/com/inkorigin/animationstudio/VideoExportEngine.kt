@@ -202,6 +202,7 @@ object VideoExportEngine {
 
     private fun outputSize(resolution: String, aspectRatio: String): Pair<Int, Int> {
         val shortSide = when (resolution) {
+            "480p" -> 480
             "720p" -> 720
             "4K" -> 2160
             else -> 1080
