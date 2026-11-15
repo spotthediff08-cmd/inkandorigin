@@ -714,8 +714,8 @@ fun HomePage(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("studio_home", Context.MODE_PRIVATE) }
     var searchQuery by remember { mutableStateOf("") }
-    var folders by remember { mutableStateOf(prefs.getStringSet("project_folders", emptySet<String>())?.toList()?.sorted() ?: emptyList()) }
-    var assignments by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("project_folder_") }.mapValues { it.value as? String ?: "" }.filterValues { it.isNotBlank() }) }
+    var folders by remember { mutableStateOf<List<String>>(prefs.getStringSet("project_folders", emptySet<String>())?.toList()?.sorted() ?: emptyList<String>()) }
+    var assignments by remember { mutableStateOf<Map<String, String>>(prefs.all.filterKeys { it.startsWith("project_folder_") }.mapValues { it.value as? String ?: "" }.filterValues { it.isNotBlank() }) }
     var showCreateFolder by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
@@ -791,7 +791,7 @@ fun HomePage(
             } else {
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { selectedFolder = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                        IconButton(onClick = { selectedFolder = null }) { Icon(Icons.Default.ArrowBack, "Back") }
                         Column(Modifier.weight(1f)) { Text(selectedFolder ?: "", fontSize = 20.sp, fontWeight = FontWeight.Bold); Text("${inFolder.size} projects", color = Muted, fontSize = 12.sp) }
                     }
                 }
