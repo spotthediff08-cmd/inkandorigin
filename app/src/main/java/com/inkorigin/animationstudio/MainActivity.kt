@@ -117,6 +117,7 @@ fun StudioApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf("Home") }
+    var editorReturnTab by remember { mutableStateOf("NewProject") }
     var scenes by remember { mutableStateOf(listOf<Scene>()) }
     var sceneUndo by remember { mutableStateOf(emptyList<List<Scene>>()) }
     var sceneRedo by remember { mutableStateOf(emptyList<List<Scene>>()) }
@@ -275,6 +276,7 @@ fun StudioApp() {
                 transition = loaded.transition
                 status = "Project opened • ready to continue editing"
                 showProjects = false
+                editorReturnTab = "Home"
                 tab = "Scenes"
             }.onFailure { status = "Open failed: " + (it.message ?: "Unknown error") }
         }
@@ -556,8 +558,21 @@ fun StudioApp() {
             topBar = {
                 if (tab != "NewProject") TopAppBar(
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Open menu", tint = Color(0xFF202124))
+                        IconButton(onClick = {
+                            if (tab == "Scenes") {
+                                scope.launch {
+                                    runCatching { saveCurrentProjectIfNeeded() }
+                                    tab = editorReturnTab
+                                }
+                            } else {
+                                scope.launch { drawerState.open() }
+                            }
+                        }) {
+                            Icon(
+                                if (tab == "Scenes") Icons.Default.ArrowBack else Icons.Default.Menu,
+                                contentDescription = if (tab == "Scenes") "Back" else "Open menu",
+                                tint = Color(0xFF202124)
+                            )
                         }
                     },
                     title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
@@ -600,7 +615,7 @@ fun StudioApp() {
                     onVoice = { audioPicker.launch(arrayOf("audio/*")) },
                     onTimelineSrt = { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
                     onCaptionSrt = { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
-                    onNext = { tab = "Scenes" }
+                    onNext = { editorReturnTab = "NewProject"; tab = "Scenes" }
                 )
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
