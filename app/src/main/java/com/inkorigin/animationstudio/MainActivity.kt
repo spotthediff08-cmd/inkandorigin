@@ -1126,7 +1126,6 @@ private fun StudioStatCard(label: String, value: String, icon: androidx.compose.
 @Composable
 fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) -> Unit, add: () -> Unit, replace: (Int, Scene) -> Unit, goExport: () -> Unit, globalMotion: String, setGlobalMotion: (String) -> Unit, canUndo: Boolean, canRedo: Boolean, undo: () -> Unit, redo: () -> Unit, srtText: String, audioUri: Uri?, transition: String, subtitleFontSize: Int, subtitleColor: String, subtitlePosition: String, subtitleOutline: Boolean, subtitleBackground: Boolean, setSubtitleFontSize: (Int) -> Unit, setSubtitleColor: (String) -> Unit, setSubtitlePosition: (String) -> Unit, setSubtitleOutline: (Boolean) -> Unit, setSubtitleBackground: (Boolean) -> Unit, aspectRatio: String, setTransition: (String) -> Unit, onNavigate: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    var previewScene = remember { mutableStateOf<Scene?>(null) }
     var showTimelinePreview by remember { mutableStateOf(false) }
     var previewPlaying by remember { mutableStateOf(false) }
     var previewPositionMs by remember { mutableLongStateOf(0L) }
@@ -1232,14 +1231,54 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         modifier = modifier.fillMaxSize().background(Color(0xFFF7F6FA)),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        // Preview monitor
+        // Single-screen preview: playback stays inside this editor.
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Preview", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color(0xFF25232B), modifier = Modifier.weight(1f))
+                IconButton(onClick = undo, enabled = canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = if (canUndo) Accent else Muted) }
+                IconButton(onClick = redo, enabled = canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, "Redo", tint = if (canRedo) Accent else Muted) }
                 TextButton(onClick = goExport, enabled = scenes.isNotEmpty()) {
                     Text("Project Export", color = Color.White, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.background(Color(0xFF6650A4), RoundedCornerShape(18.dp)).padding(horizontal = 15.dp, vertical = 8.dp))
                 }
+            }
+            val previewIndex = run {
+                var remaining = previewPositionMs
+                var index = 0
+                while (index < scenes.lastIndex && remaining >= (scenes[index].duration.coerceAtLeast(0.5f) * 1000).toLong()) {
+                    remaining -= (scenes[index].duration.coerceAtLeast(0.5f) * 1000).toLong()
+                    index++
+                }
+                index
+            }
+            val previewSceneNow = scenes.getOrNull(if (previewPlaying || previewPositionMs > 0L) previewIndex else selectedSceneIndex)
+            val previewSceneElapsed = run {
+                var remaining = previewPositionMs
+                for (i in 0 until previewIndex) remaining -= (scenes[i].duration.coerceAtLeast(0.5f) * 1000).toLong()
+                remaining.coerceAtLeast(0L)
+            }
+            val previewSceneDuration = previewSceneNow?.duration?.coerceAtLeast(0.5f)?.times(1000f) ?: 1f
+            val previewProgress = (previewSceneElapsed / previewSceneDuration).coerceIn(0f, 1f)
+            val previewMotion = previewSceneNow?.motion ?: "Static"
+            val previewScale = when (previewMotion) {
+                "Static" -> 1.04f
+                "Zoom Out", "Pull Back" -> 1.16f - 0.12f * previewProgress
+                "Zoom In-Out", "Gentle Pulse" -> 1.04f + 0.12f * kotlin.math.sin(previewProgress * Math.PI).toFloat()
+                "Zoom Out-In" -> 1.16f - 0.12f * kotlin.math.sin(previewProgress * Math.PI).toFloat()
+                "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Drift Left", "Drift Right", "Drift Up", "Drift Down" -> 1.16f
+                else -> 1.04f + 0.12f * previewProgress
+            }
+            val previewPanX = when (previewMotion) {
+                "Pan Left", "Drift Left" -> 0.04f - 0.08f * previewProgress
+                "Pan Right", "Drift Right" -> -0.04f + 0.08f * previewProgress
+                "Cinematic", "Ken Burns", "Zoom+Pan", "Slow Push" -> -0.025f + 0.05f * previewProgress
+                else -> 0f
+            }
+            val previewPanY = when (previewMotion) {
+                "Pan Up", "Drift Up" -> 0.04f - 0.08f * previewProgress
+                "Pan Down", "Drift Down" -> -0.04f + 0.08f * previewProgress
+                "Cinematic", "Ken Burns", "Zoom+Pan", "Slow Push" -> 0.012f - 0.024f * previewProgress
+                else -> 0f
             }
             Card(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 190.dp, max = 235.dp),
@@ -1248,33 +1287,64 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Box(Modifier.fillMaxSize().padding(10.dp)) {
-                    if (selectedScene != null) {
-                        AsyncImage(model = selectedScene.uri, contentDescription = selectedScene.name,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).clickable {
-                                previewPositionMs = 0L; previewPlaying = false; showTimelinePreview = true
+                    if (previewSceneNow != null) {
+                        AsyncImage(model = previewSceneNow.uri, contentDescription = previewSceneNow.name,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).graphicsLayer {
+                                scaleX = previewScale
+                                scaleY = previewScale
+                                translationX = size.width * previewPanX
+                                translationY = size.height * previewPanY
                             }, contentScale = if (cropMode == "Fit") ContentScale.Fit else ContentScale.Crop)
+                        activePreviewCue?.let { cue ->
+                            val cueColor = when (subtitleColor) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }
+                            val cueAlignment = when (subtitlePosition) { "Top" -> Alignment.TopCenter; "Center" -> Alignment.Center; else -> Alignment.BottomCenter }
+                            Text(cue.text, color = cueColor, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontSize = (subtitleFontSize * 230f / 1080f).coerceAtLeast(8f).sp,
+                                style = if (subtitleOutline) androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, androidx.compose.ui.geometry.Offset(1f, 1f), 2f)) else androidx.compose.ui.text.TextStyle.Default,
+                                modifier = Modifier.align(cueAlignment).padding(10.dp)
+                                    .then(if (subtitleBackground) Modifier.background(Color(0xCC000000), RoundedCornerShape(6.dp)) else Modifier)
+                                    .padding(8.dp))
+                        }
                     } else {
                         Box(Modifier.fillMaxSize().background(Color(0xFF252633), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
                             Text("Add scene images to preview your video", color = Color.White.copy(alpha = .8f), fontSize = 13.sp)
                         }
                     }
-                    Box(Modifier.align(Alignment.Center).size(58.dp).background(Color.Black.copy(alpha = .55f), RoundedCornerShape(50)).clickable {
-                        if (scenes.isNotEmpty()) { previewPositionMs = 0L; previewPlaying = false; showTimelinePreview = true }
-                    }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play preview", tint = Color.White, modifier = Modifier.size(38.dp))
-                    }
-                    Text("Scene ${if (scenes.isEmpty()) 0 else selectedSceneIndex + 1} / ${scenes.size}",
+                    Text("Scene ${if (scenes.isEmpty()) 0 else previewIndex + 1} / ${scenes.size}",
                         color = Color.White, fontSize = 11.sp,
                         modifier = Modifier.align(Alignment.BottomStart).background(Color.Black.copy(alpha = .55f), RoundedCornerShape(8.dp)).padding(horizontal = 9.dp, vertical = 5.dp))
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Scene Transitions", fontSize = 11.sp, color = Color(0xFF686572), fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.weight(1f))
-                listOf("None", "Fade", "Preview").forEach { option ->
-                    TextButton(onClick = { if (option == "Preview") { previewPositionMs = 0L; showTimelinePreview = true } },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                        Text(if (option == "Preview") "Preview" else option, fontSize = 11.sp, color = if (option == "None") Accent else Color(0xFF5B5667))
+            Slider(value = previewPositionMs.toFloat().coerceIn(0f, previewTotalMs.toFloat()), onValueChange = {
+                previewPositionMs = it.toLong()
+                previewPlaying = false
+                selectedSceneIndex = previewIndex.coerceIn(0, (scenes.size - 1).coerceAtLeast(0))
+                runCatching { previewPlayer?.seekTo(previewPositionMs.coerceAtMost(previewPlayer?.duration?.toLong() ?: previewPositionMs).toInt()) }
+            }, valueRange = 0f..previewTotalMs.toFloat(), enabled = scenes.isNotEmpty())
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${"%.1f".format(previewPositionMs / 1000f)}s / ${"%.1f".format(previewTotalMs / 1000f)}s", color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = {
+                    previewPositionMs = 0L
+                    previewPlaying = false
+                    showTimelinePreview = true
+                    runCatching { previewPlayer?.seekTo(0) }
+                }, enabled = scenes.isNotEmpty()) { Icon(Icons.Default.Replay, null); Text("Restart") }
+                Button(onClick = {
+                    if (previewPositionMs >= previewTotalMs) previewPositionMs = 0L
+                    showTimelinePreview = true
+                    previewPlaying = !previewPlaying
+                }, enabled = scenes.isNotEmpty()) {
+                    Icon(if (previewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
+                    Text(if (previewPlaying) "Pause" else "Play")
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Scene transition", fontSize = 11.sp, color = Muted, modifier = Modifier.weight(1f))
+                var transitionMenu by remember { mutableStateOf(false) }
+                TextButton(onClick = { transitionMenu = true }) { Text(transition, color = Accent, fontSize = 11.sp) }
+                DropdownMenu(expanded = transitionMenu, onDismissRequest = { transitionMenu = false }) {
+                    listOf("None", "Fade through black", "Slide Left", "Slide Right").forEach { option ->
+                        DropdownMenuItem(text = { Text(option) }, onClick = { setTransition(option); transitionMenu = false })
                     }
                 }
             }
@@ -1284,7 +1354,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 var motionMenu by remember { mutableStateOf(false) }
                 TextButton(onClick = { motionMenu = true }) { Text(globalMotion, color = Accent, fontSize = 12.sp) }
                 DropdownMenu(expanded = motionMenu, onDismissRequest = { motionMenu = false }) {
-                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Pan Left", "Pan Right", "Ken Burns", "Cinematic").forEach { option ->
+                    listOf("Static", "Auto Zoom", "Zoom In-Out", "Pan Left", "Pan Right", "Ken Burns", "Cinematic", "Random", "Alternate").forEach { option ->
                         DropdownMenuItem(text = { Text(option) }, onClick = { setGlobalMotion(option); motionMenu = false })
                     }
                 }
@@ -1379,7 +1449,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                         } else when (tool) {
                             "Effects" -> {
                                 Text("Apply a motion effect to the selected image.")
-                                listOf("Static", "Cinematic", "Ken Burns", "Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Pan Up", "Pan Down").forEach { effect ->
+                                listOf("Static", "Cinematic", "Ken Burns", "Zoom In", "Zoom Out", "Zoom In-Out", "Zoom Out-In", "Slow Push", "Pull Back", "Gentle Pulse", "Zoom+Pan", "Pan Left", "Pan Right", "Pan Up", "Pan Down", "Drift Left", "Drift Right", "Drift Up", "Drift Down", "Random", "Alternate").forEach { effect ->
                                     TextButton(onClick = {
                                         val next = scenes.toMutableList(); next[selectedSceneIndex] = selectedScene.copy(motion = effect); update(next); activeTool = null
                                     }, modifier = Modifier.fillMaxWidth()) { Text(if (selectedScene.motion == effect) "✓ $effect" else effect) }
@@ -1420,7 +1490,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                             }
                             "Slide" -> {
                                 Text("Choose the transition between scenes.")
-                                listOf("None", "Fade", "Fade through black", "Slide Left", "Slide Right").forEach { option ->
+                                listOf("None", "Fade through black", "Slide Left", "Slide Right").forEach { option ->
                                     TextButton(onClick = { setTransition(option); activeTool = null }, modifier = Modifier.fillMaxWidth()) {
                                         Text(if (transition == option) "✓ $option" else option)
                                     }
@@ -1436,128 +1506,6 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
         }
 
 
-    }
-
-    if (showTimelinePreview && scenes.isNotEmpty()) {
-        var remainingMs = previewPositionMs
-        var currentIndex = 0
-        while (currentIndex < scenes.lastIndex && remainingMs >= (scenes[currentIndex].duration * 1000).toLong()) {
-            remainingMs -= (scenes[currentIndex].duration * 1000).toLong()
-            currentIndex++
-        }
-        val currentScene = scenes[currentIndex]
-        val sceneDurationMs = (currentScene.duration * 1000).toLong().coerceAtLeast(1L)
-        val progress = (remainingMs.toFloat() / sceneDurationMs).coerceIn(0f, 1f)
-        val previewMotion = when (currentScene.motion) {
-            "Random" -> listOf("Zoom In", "Zoom Out", "Pan Left", "Pan Right", "Ken Burns")[currentIndex % 5]
-            "Alternate" -> if (currentIndex % 2 == 0) "Zoom In" else "Zoom Out"
-            else -> currentScene.motion
-        }
-        // Subtle Ken Burns movement: visible motion with restrained zoom.
-        val scale = when (previewMotion) {
-            "Static" -> 1.04f
-            "Zoom In", "Auto Zoom" -> 1.04f + 0.12f * progress
-            "Zoom Out" -> 1.16f - 0.12f * progress
-            "Zoom In-Out" -> 1.04f + 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Zoom Out-In" -> 1.16f - 0.12f * kotlin.math.sin(progress * Math.PI).toFloat()
-            "Pan Left", "Pan Right", "Pan Up", "Pan Down" -> 1.16f
-            else -> 1.06f + 0.10f * progress
-        }
-        val panX = when (previewMotion) {
-            "Pan Left" -> 0.04f - 0.08f * progress
-            "Pan Right" -> -0.04f + 0.08f * progress
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> -0.025f + 0.05f * progress
-            else -> 0f
-        }
-        val panY = when (previewMotion) {
-            "Pan Up" -> 0.04f - 0.08f * progress
-            "Pan Down" -> -0.04f + 0.08f * progress
-            "Cinematic", "Ken Burns", "Zoom+Pan" -> 0.012f - 0.024f * progress
-            else -> 0f
-        }
-        androidx.compose.ui.window.Dialog(onDismissRequest = { previewPlaying = false; showTimelinePreview = false }) {
-            Surface(color = Panel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Timeline preview", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { previewPlaying = false; showTimelinePreview = false }) { Icon(Icons.Default.Close, "Close") }
-                    }
-                    Box(Modifier.fillMaxWidth().then(if (aspectRatio == "9:16") Modifier.height(420.dp) else Modifier.aspectRatio(16f / 9f)).background(Color.Black, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                        Box(Modifier.then(if (aspectRatio == "9:16") Modifier.fillMaxHeight().aspectRatio(9f / 16f) else Modifier.fillMaxSize()), contentAlignment = Alignment.Center) {
-                        AsyncImage(
-                            model = currentScene.uri,
-                            contentDescription = displaySceneLabel(currentScene.name),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                                translationX = size.width * panX
-                                translationY = size.height * panY
-                            }
-                        )
-                        if (previewTransitionAlpha > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = previewTransitionAlpha)))
-                        Text(displaySceneLabel(currentScene.name), color = Color.White, modifier = Modifier.align(Alignment.TopStart).background(Color(0x99000000), RoundedCornerShape(6.dp)).padding(8.dp))
-                        activePreviewCue?.let { cue ->
-                            val previewTextColor = when (subtitleColor) { "Yellow" -> Color.Yellow; "Cyan" -> Color.Cyan; else -> Color.White }
-                            val subtitleAlignment = when (subtitlePosition) { "Top" -> Alignment.TopCenter; "Center" -> Alignment.Center; else -> Alignment.BottomCenter }
-                            Text(cue.text, color = previewTextColor, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                fontSize = (subtitleFontSize * 230f / 1080f).coerceAtLeast(8f).sp,
-                                style = if (subtitleOutline) androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color.Black, androidx.compose.ui.geometry.Offset(1f, 1f), 2f)) else androidx.compose.ui.text.TextStyle.Default,
-                                modifier = Modifier.align(subtitleAlignment).padding(10.dp)
-                                    .then(if (subtitleBackground) Modifier.background(Color(0xCC000000), RoundedCornerShape(6.dp)) else Modifier)
-                                    .padding(8.dp))
-                        }
-                        }
-                    }
-                    Text("Scene " + (currentIndex + 1) + " of " + scenes.size + " • " + previewMotion, color = Muted, fontSize = 12.sp)
-                    Slider(value = previewPositionMs.toFloat(), onValueChange = { previewPositionMs = it.toLong(); previewPlaying = false; runCatching { previewPlayer?.seekTo(previewPositionMs.coerceAtMost(previewPlayer?.duration?.toLong() ?: previewPositionMs).toInt()) } }, valueRange = 0f..previewTotalMs.toFloat())
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("%.1f".format(previewPositionMs / 1000f) + "s / " + "%.1f".format(previewTotalMs / 1000f) + "s", color = Muted, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { previewPositionMs = 0L; previewPlaying = false; runCatching { previewPlayer?.seekTo(0) } }) { Icon(Icons.Default.Replay, "Restart") }
-                        Button(onClick = { if (previewPositionMs >= previewTotalMs) { previewPositionMs = 0L; runCatching { previewPlayer?.seekTo(0) } }; previewPlaying = !previewPlaying }) {
-                            Icon(if (previewPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
-                            Text(if (previewPlaying) "Pause" else "Play")
-                        }
-                    }
-                    Text(
-                        when {
-                            audioUri == null -> "No voiceover selected. Visual timeline and SRT subtitles are previewed without audio."
-                            previewAudioFailed -> "Voiceover preview could not be opened. Visual timeline and subtitles remain available."
-                            !previewAudioReady -> "Preparing voiceover audio…"
-                            else -> "Voiceover audio plays with the visual timeline. SRT subtitles follow the preview position."
-                        },
-                        color = Muted,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
-    }
-
-    if (previewScene.value != null) {
-        val scene = previewScene.value!!
-        androidx.compose.ui.window.Dialog(onDismissRequest = { previewScene.value = null }) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.Black,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(Modifier.padding(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        IconButton(onClick = { previewScene.value = null }) {
-                            Icon(Icons.Default.Close, "Close preview", tint = Color.White)
-                        }
-                    }
-                    AsyncImage(
-                        model = scene.uri,
-                        contentDescription = scene.name,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 650.dp),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                    )
-                    Text(scene.name, color = Color.White, modifier = Modifier.padding(8.dp))
-                }
-            }
-        }
     }
 
 }
@@ -1656,7 +1604,7 @@ fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, re
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("16:9", "9:16").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) } }
         Text("SCENE TRANSITION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("None", "Fade through black").forEach { value ->
+            listOf("None", "Fade through black", "Slide Left", "Slide Right").forEach { value ->
                 FilterChip(selected = transition == value, onClick = { setTransition(value) }, label = { Text(value) })
             }
         }
