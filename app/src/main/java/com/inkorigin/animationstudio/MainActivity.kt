@@ -561,7 +561,9 @@ fun StudioApp() {
                 if (tab != "NewProject") TopAppBar(
                     navigationIcon = {
                         IconButton(onClick = {
-                            if (tab == "Scenes") {
+                            if (tab == "Export") {
+                                tab = "Scenes"
+                            } else if (tab == "Scenes") {
                                 scope.launch {
                                     runCatching { saveCurrentProjectIfNeeded() }
                                     tab = editorReturnTab
@@ -571,16 +573,16 @@ fun StudioApp() {
                             }
                         }) {
                             Icon(
-                                if (tab == "Scenes") Icons.Default.ArrowBack else Icons.Default.Menu,
-                                contentDescription = if (tab == "Scenes") "Back" else "Open menu",
+                                if (tab == "Scenes" || tab == "Export") Icons.Default.ArrowBack else Icons.Default.Menu,
+                                contentDescription = if (tab == "Scenes" || tab == "Export") "Back" else "Open menu",
                                 tint = Color(0xFF202124)
                             )
                         }
                     },
-                    title = { Text("Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
+                    title = { Text(if (tab == "Export") "Export Video" else "Animation Studio", fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp) },
                     actions = {
                         if (tab == "Scenes") { TextButton(onClick = { tab = "Export" }) { Text("Project Export", color = Accent, fontWeight = FontWeight.SemiBold) } }
-                        if (tab != "Scenes") {
+                        if (tab != "Scenes" && tab != "Export") {
                             IconButton(onClick = { showProfile = true }, modifier = Modifier.padding(end = 6.dp)) {
                                 Box(Modifier.size(34.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
                                     Icon(Icons.Default.Person, contentDescription = "Profile", tint = Accent, modifier = Modifier.size(20.dp))
@@ -624,7 +626,7 @@ fun StudioApp() {
 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, { subtitleFontSize = it }, { subtitleColor = it }, { subtitlePosition = it }, { subtitleOutline = it }, { subtitleBackground = it }, aspectRatio, { transition = it }, { destination -> if (destination == "Home") { scope.launch { runCatching { saveCurrentProjectIfNeeded() }; tab = "Home" } } else tab = destination })
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
-                else -> ExportPage(Modifier.fillMaxSize(), scenes.size, timelineSrtCueCount, audio != null, resolution, { resolution = it }, aspectRatio, { aspectRatio = it }, frameRate, { frameRate = it }, transition, { transition = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete"; scope.launch { withContext(Dispatchers.IO) { ExportHistoryStore.add(context, uri) }; exportHistory = withContext(Dispatchers.IO) { ExportHistoryStore.list(context) } } }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) }, { uri -> val share = Intent(Intent.ACTION_SEND).apply { type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(share, "Share exported video")) }, exportHistory, status)
+                else -> ExportPage(Modifier.fillMaxSize(), aspectRatio, { aspectRatio = it }, resolution, { resolution = it }, frameRate, { frameRate = it }, exporting, exportProgress, { if (VideoExportEngine.cancel()) { exporting = false; exportProgress = 0; exportStatus = "Export cancelled" } else exportStatus = "Finalizing video…" }, exportStatus, { VideoExportEngine.export(context, scenes, audio, wordSrtText, ExportSettings(resolution, aspectRatio, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, frameRate, transition), projectName = projectName, onStarted = { exporting = true; exportProgress = 0; exportStatus = "Rendering video…"; lastExportUri = null }, onCompleted = { uri -> exporting = false; exportProgress = 100; lastExportUri = uri; exportStatus = "Video saved to Movies / Animation Studio"; status = "Export complete" }, onError = { message -> exporting = false; exportProgress = 0; exportStatus = if (message == "Export cancelled") message else "Export failed: " + message }) })
                 }
                 // Keep this page composed while other tabs are open so the uploaded
                 // storyboard, selected folder, and panel choices remain intact.
@@ -1237,10 +1239,7 @@ fun ScenesPage(modifier: Modifier, scenes: List<Scene>, update: (List<Scene>) ->
                 Text("Preview", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color(0xFF25232B), modifier = Modifier.weight(1f))
                 IconButton(onClick = undo, enabled = canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = if (canUndo) Accent else Muted) }
                 IconButton(onClick = redo, enabled = canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, "Redo", tint = if (canRedo) Accent else Muted) }
-                TextButton(onClick = goExport, enabled = scenes.isNotEmpty()) {
-                    Text("Project Export", color = Color.White, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.background(Color(0xFF6650A4), RoundedCornerShape(18.dp)).padding(horizontal = 15.dp, vertical = 8.dp))
-                }
+
             }
             val previewIndex = run {
                 var remaining = previewPositionMs
@@ -1593,74 +1592,63 @@ fun SubtitlePage(
 }
 
 @Composable
-fun ExportPage(modifier: Modifier, count: Int, srtCount: Int, audio: Boolean, resolution: String, setResolution:(String)->Unit, aspectRatio: String, setAspectRatio:(String)->Unit, frameRate: Int, setFrameRate:(Int)->Unit, transition: String, setTransition:(String)->Unit, exporting: Boolean, progress: Int, onCancel: () -> Unit, exportStatus: String, onExport: () -> Unit, onShare: (Uri) -> Unit, history: List<ExportHistoryEntry>, status:String) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        StudioPageHeader("Export studio", "FINAL OUTPUT", "Configure quality and render your finished film.", "MP4  •  H.264  •  AAC")
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.8f))) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Text("PROJECT CHECK", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.weight(1f)); Icon(Icons.Default.FactCheck, null, tint = Accent, modifier = Modifier.size(17.dp)) }
-                Text("Scene images: $count\nSRT scene titles: $srtCount\nVoiceover: ${if(audio) "Added" else "Missing"}\nAspect ratio: $aspectRatio\nResolution: $resolution", color = Muted, lineHeight = 24.sp)
-                if (srtCount == count && count > 0) {
-                    Text("SRT and scene counts match. Export is ready.", color = Color(0xFF75D69A), fontSize = 12.sp)
-                } else {
-                    Text(
-                        if (srtCount == 0) "Export locked: import a valid scene-title SRT first."
-                        else "Export locked: $srtCount SRT titles but $count scene images. Make both counts equal.",
-                        color = Color(0xFFFFA45C), fontSize = 12.sp
-                    )
+fun ExportPage(
+    modifier: Modifier,
+    aspectRatio: String,
+    setAspectRatio: (String) -> Unit,
+    resolution: String,
+    setResolution: (String) -> Unit,
+    frameRate: Int,
+    setFrameRate: (Int) -> Unit,
+    exporting: Boolean,
+    progress: Int,
+    onCancel: () -> Unit,
+    exportStatus: String,
+    onExport: () -> Unit
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Text("Choose your video output settings.", color = Muted, fontSize = 13.sp)
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text("ASPECT RATIO", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    listOf("16:9", "9:16").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) }
                 }
             }
         }
-        Text("ASPECT RATIO", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("16:9", "9:16").forEach { value -> FilterChip(selected = aspectRatio == value, onClick = { setAspectRatio(value) }, label = { Text(value) }) } }
-        Text("SCENE TRANSITION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("None", "Fade through black", "Slide Left", "Slide Right").forEach { value ->
-                FilterChip(selected = transition == value, onClick = { setTransition(value) }, label = { Text(value) })
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text("FRAME RATE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    listOf(24, 30, 60).forEach { value -> FilterChip(selected = frameRate == value, onClick = { setFrameRate(value) }, label = { Text("$value FPS") }) }
+                }
             }
         }
-        Text("FRAME RATE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(24, 30, 60).forEach { value -> FilterChip(selected = frameRate == value, onClick = { setFrameRate(value) }, label = { Text(value.toString() + " fps") }) } }
-        Text("VIDEO QUALITY / RESOLUTION", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("720p", "1080p", "4K").forEach { value ->
-                FilterChip(selected = resolution == value, onClick = { setResolution(value) }, label = { Text(value) })
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Text("VIDEO QUALITY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    listOf("720p", "1080p", "4K").forEach { value -> FilterChip(selected = resolution == value, onClick = { setResolution(value) }, label = { Text(value) }) }
+                }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
-            Column(Modifier.padding(16.dp)) {
-                Text("MP4 rendering", fontWeight = FontWeight.Bold)
-                Text("H.264 video • AAC voiceover • SRT subtitle burn-in • " + frameRate + " fps", color = Muted, fontSize = 13.sp)
-            }
-        }
-        Button(onClick = onExport, enabled = count > 0 && srtCount == count && !exporting, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) {
-            Icon(Icons.Default.Movie, null); Spacer(Modifier.width(9.dp)); Text(if (exporting) "Rendering your video…" else "Render & Export MP4", fontWeight = FontWeight.Bold)
+        Button(onClick = onExport, enabled = !exporting, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) {
+            Icon(Icons.Default.FileDownload, null)
+            Spacer(Modifier.width(9.dp))
+            Text(if (exporting) "Exporting…" else "Export Video", fontWeight = FontWeight.Bold)
         }
         if (exporting) {
             if (progress > 0) LinearProgressIndicator(progress = { progress.coerceIn(0, 100) / 100f }, modifier = Modifier.fillMaxWidth())
             else LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (progress > 0) "Rendering: $progress%" else "Preparing export…", color = Muted, modifier = Modifier.weight(1f))
+                Text(if (progress > 0) "Exporting: $progress%" else "Preparing video…", color = Muted, modifier = Modifier.weight(1f))
                 TextButton(onClick = onCancel) { Text("Cancel") }
             }
         }
-        Text(exportStatus, color = Accent)
-        if (exportStatus.startsWith("Video saved")) OutlinedButton(onClick = { /* current export appears at the top of history */ history.firstOrNull()?.let { onShare(it.uri) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(8.dp)); Text("Share video") }
-        if (history.isNotEmpty()) {
-            Text("EXPORT HISTORY", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            history.take(10).forEach { entry ->
-                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.7f))) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(entry.fileName, maxLines = 1, fontWeight = FontWeight.SemiBold)
-                            Text(java.text.SimpleDateFormat("dd MMM yyyy • HH:mm", java.util.Locale.getDefault()).format(java.util.Date(entry.createdAt)), color = Muted, fontSize = 11.sp)
-                        }
-                        IconButton(onClick = { onShare(entry.uri) }) { Icon(Icons.Default.Share, "Share export") }
-                    }
-                }
-            }
-        }
-        Text(status, color = Muted, fontSize = 11.sp)
+        Text(exportStatus, color = if (exportStatus.startsWith("Export failed")) Color(0xFFCC5555) else Accent, fontSize = 13.sp)
     }
 }
 
