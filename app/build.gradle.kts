@@ -12,8 +12,8 @@ android {
         applicationId = "com.inkorigin.animationstudio"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.1.6"
+        versionCode = 18
+        versionName = "1.1.7"
     }
 
     signingConfigs {
