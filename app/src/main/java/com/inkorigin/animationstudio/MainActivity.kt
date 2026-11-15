@@ -883,7 +883,7 @@ fun HomePage(
                     }
                     if (foldersExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            val folderTiles = folders + "__CREATE_FOLDER_TILE__"
+                            val folderTiles = listOf("__CREATE_FOLDER_TILE__") + folders
                             folderTiles.chunked(2).forEach { pair ->
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                                     pair.forEach { folder ->
@@ -915,16 +915,6 @@ fun HomePage(
                         }
                     } else {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp), modifier = Modifier.fillMaxWidth()) {
-                            items(folders, key = { it }) { folder ->
-                                val count = projects.count { assignments[it.id] == folder }
-                                Card(Modifier.width(142.dp).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(18.dp)) {
-                                    Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                        Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(38.dp))
-                                        Text(folder, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                        Text("$count projects", color = Muted, fontSize = 11.sp)
-                                    }
-                                }
-                            }
                             item {
                                 Card(Modifier.width(142.dp).clickable { showCreateFolder = true }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F5F7)), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Outline)) {
                                     Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -934,6 +924,16 @@ fun HomePage(
                                         }
                                         Text("Add folder", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                         Text("Create new", color = Muted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                            items(folders, key = { it }) { folder ->
+                                val count = projects.count { assignments[it.id] == folder }
+                                Card(Modifier.width(142.dp).clickable { selectedFolder = folder }, colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF7FF)), shape = RoundedCornerShape(18.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Icon(Icons.Default.Folder, null, tint = Color(0xFF55B8E8), modifier = Modifier.size(38.dp))
+                                        Text(folder, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        Text("$count projects", color = Muted, fontSize = 11.sp)
                                     }
                                 }
                             }
