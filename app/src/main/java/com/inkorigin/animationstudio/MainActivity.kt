@@ -322,13 +322,17 @@ fun StudioApp() {
             }
         }
     }
-    val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            val importedScene = Scene(uri, uri.lastPathSegment?.substringAfterLast('/') ?: "Image", motion = globalMotion)
-            val combined = (scenes + importedScene).sortedWith(compareBy { naturalKey(it.name) })
+    val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            uris.forEach { uri ->
+                runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            }
+            val importedScenes = uris.map { uri ->
+                Scene(uri, uri.lastPathSegment?.substringAfterLast('/') ?: "Image", motion = globalMotion)
+            }
+            val combined = (scenes + importedScenes).sortedWith(compareBy { naturalKey(it.name) })
             updateScenes(applyTimelineSrt(combined, srtText))
-            status = "1 image imported"
+            status = importedScenes.size.toString() + " images imported"
         } else {
             status = "Image selection cancelled"
         }
