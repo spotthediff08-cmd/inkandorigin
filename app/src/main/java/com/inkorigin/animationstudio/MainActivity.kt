@@ -322,6 +322,18 @@ fun StudioApp() {
             }
         }
     }
+    val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val importedScene = Scene(uri, uri.lastPathSegment?.substringAfterLast('/') ?: "Image", motion = globalMotion)
+            val combined = (scenes + importedScene).sortedWith(compareBy { naturalKey(it.name) })
+            updateScenes(applyTimelineSrt(combined, srtText))
+            status = "1 image imported"
+        } else {
+            status = "Image selection cancelled"
+        }
+    }
+
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             uris.forEach { uri -> runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
@@ -617,7 +629,7 @@ fun StudioApp() {
                     timelineSrtName = srtName,
                     captionSrtName = wordSrtName,
                     onBack = { tab = "Home" },
-                    onSingleImage = { imagePicker.launch(arrayOf("image/*")) },
+                    onSingleImage = { singleImagePicker.launch(arrayOf("image/*")) },
                     onStoryboard = { tab = "Storyboard" },
                     onVoice = { audioPicker.launch(arrayOf("audio/*")) },
                     onTimelineSrt = { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
