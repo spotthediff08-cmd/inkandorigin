@@ -35,6 +35,6 @@ The workflow builds the APK automatically after commits to `main`, or can be sta
 
 Signed test releases are published on the GitHub Releases page. Install the APK over the existing app to test an update; do not uninstall the app first.
 
-## Latest test build
+## Account UI test build
 
-Version 1.2.7 supports selecting multiple images from the Single Image import action.
+Version 1.3.1 prepares the local profile and account screens: profile editing, sign-in, sign-up, password confirmation and validation, forgot-password entry, Google sign-in entry point, and guest mode. Authentication actions are intentionally not active until Supabase is configured. User projects continue to work locally without an account.
