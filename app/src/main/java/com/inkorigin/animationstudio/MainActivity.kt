@@ -892,6 +892,17 @@ fun StudioApp() {
                                 Text("Back to sign in", color = Accent, fontSize = 12.sp)
                             }
                         }
+                        if (!forgotPasswordMode) {
+                            OutlinedButton(
+                                onClick = { accountNotice = "Google sign-in will be enabled after the authentication provider is connected." },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Continue with Google")
+                            }
+                        }
                         if (accountNotice.isNotBlank()) {
                             Text(accountNotice, color = Color(0xFFB45309), fontSize = 11.sp, lineHeight = 16.sp)
                         }
