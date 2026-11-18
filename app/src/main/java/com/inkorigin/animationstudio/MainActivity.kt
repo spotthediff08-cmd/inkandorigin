@@ -634,6 +634,7 @@ fun StudioApp() {
                     captionSrtName = wordSrtName,
                     onBack = { tab = "Home" },
                     onSingleImage = { singleImagePicker.launch(arrayOf("image/*")) },
+                    onFolder = { folderPicker.launch(null) },
                     onStoryboard = { tab = "Storyboard" },
                     onVoice = { audioPicker.launch(arrayOf("audio/*")) },
                     onTimelineSrt = { srtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) },
@@ -783,6 +784,7 @@ private fun NewProjectPage(
     captionSrtName: String,
     onBack: () -> Unit,
     onSingleImage: () -> Unit,
+    onFolder: () -> Unit,
     onStoryboard: () -> Unit,
     onVoice: () -> Unit,
     onTimelineSrt: () -> Unit,
@@ -839,6 +841,9 @@ private fun NewProjectPage(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = { showImageOptions = false; onStoryboard() }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Collections, null); Spacer(Modifier.width(8.dp)); Text("Storyboard")
+                    }
+                    OutlinedButton(onClick = { showImageOptions = false; onFolder() }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Use This Folder")
                     }
                     Button(onClick = { showImageOptions = false; onSingleImage() }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Image, null); Spacer(Modifier.width(8.dp)); Text("Single Image")
