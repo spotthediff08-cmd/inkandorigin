@@ -166,6 +166,11 @@ fun StudioApp() {
     var profileEmail by remember { mutableStateOf(profilePrefs.getString("email", "") ?: "") }
     var profileNameDraft by remember { mutableStateOf(profileName) }
     var profileEmailDraft by remember { mutableStateOf(profileEmail) }
+    var accountPanel by remember { mutableStateOf("Profile") }
+    var accountPassword by remember { mutableStateOf("") }
+    var accountConfirmPassword by remember { mutableStateOf("") }
+    var accountNotice by remember { mutableStateOf("") }
+    var forgotPasswordMode by remember { mutableStateOf(false) }
     var lastProjectId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceProjectId by remember { mutableStateOf<String?>(null) }
@@ -768,90 +773,177 @@ fun StudioApp() {
 
     if (showProfile) {
         AlertDialog(
-            onDismissRequest = { showProfile = false },
+            onDismissRequest = {
+                showProfile = false
+                accountNotice = ""
+                accountPassword = ""
+                accountConfirmPassword = ""
+                forgotPasswordMode = false
+            },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(50)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            profileName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "C",
-                            color = Accent,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+                            Text(profileName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "C", color = Accent, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                        }
+                        Column {
+                            Text("Account", fontWeight = FontWeight.Bold)
+                            Text("Animation Studio", color = Muted, fontSize = 11.sp)
+                        }
                     }
-                    Column {
-                        Text("Your Profile", fontWeight = FontWeight.Bold)
-                        Text("Animation Studio", color = Muted, fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Profile", "Sign in", "Sign up").forEach { option ->
+                            val selected = accountPanel == option
+                            TextButton(
+                                onClick = {
+                                    accountPanel = option
+                                    forgotPasswordMode = false
+                                    accountNotice = ""
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                            ) {
+                                Text(option, color = if (selected) Accent else Muted, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp)
+                            }
+                        }
                     }
+                    HorizontalDivider(color = Outline)
                 }
             },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(11.dp)
                 ) {
-                    Text("Display name", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(
-                        value = profileNameDraft,
-                        onValueChange = { profileNameDraft = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("Your name") },
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    Text("Email address", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(
-                        value = profileEmailDraft,
-                        onValueChange = { profileEmailDraft = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("name@example.com") },
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = AccentSoft,
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = Accent, modifier = Modifier.size(17.dp))
-                                Text("Local profile", color = Accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    if (accountPanel == "Profile") {
+                        Text("Display name", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(
+                            value = profileNameDraft,
+                            onValueChange = { profileNameDraft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text("Your name") },
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        Text("Email address", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(
+                            value = profileEmailDraft,
+                            onValueChange = { profileEmailDraft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text("name@example.com") },
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        Surface(modifier = Modifier.fillMaxWidth(), color = AccentSoft, shape = RoundedCornerShape(14.dp)) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = Accent, modifier = Modifier.size(17.dp))
+                                    Text("Guest profile · This device", color = Accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                                Text("You can keep creating videos without signing in. Your projects remain stored locally on this phone.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                             }
-                            Text(
-                                "Your projects remain on this device. Secure sign-up, Google login and cloud sync will be connected after the account backend is configured.",
-                                color = Muted,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
+                        }
+                    } else {
+                        Text(
+                            if (forgotPasswordMode) "Enter your email and we'll add password recovery when the account service is connected."
+                            else if (accountPanel == "Sign up") "Create your Animation Studio account"
+                            else "Welcome back to Animation Studio",
+                            color = Color(0xFF202124),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                        OutlinedTextField(
+                            value = profileEmailDraft,
+                            onValueChange = { profileEmailDraft = it; accountNotice = "" },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Email address") },
+                            placeholder = { Text("name@example.com") },
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        if (!forgotPasswordMode) {
+                            OutlinedTextField(
+                                value = accountPassword,
+                                onValueChange = { accountPassword = it; accountNotice = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                label = { Text("Password") },
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                shape = RoundedCornerShape(14.dp)
                             )
+                            if (accountPanel == "Sign up") {
+                                OutlinedTextField(
+                                    value = accountConfirmPassword,
+                                    onValueChange = { accountConfirmPassword = it; accountNotice = "" },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("Confirm password") },
+                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                            }
+                            if (accountPanel == "Sign in") {
+                                TextButton(onClick = { forgotPasswordMode = true; accountNotice = "" }, contentPadding = PaddingValues(0.dp)) {
+                                    Text("Forgot password?", color = Accent, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            TextButton(onClick = { forgotPasswordMode = false; accountNotice = "" }, contentPadding = PaddingValues(0.dp)) {
+                                Text("Back to sign in", color = Accent, fontSize = 12.sp)
+                            }
+                        }
+                        if (accountNotice.isNotBlank()) {
+                            Text(accountNotice, color = Color(0xFFB45309), fontSize = 11.sp, lineHeight = 16.sp)
+                        }
+                        Surface(modifier = Modifier.fillMaxWidth(), color = AccentSoft, shape = RoundedCornerShape(14.dp)) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("Account service not connected yet", color = Accent, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                Text("This is the prepared account interface. Sign-in, account creation, email verification, Google login and password reset will activate after Supabase setup.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                            }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    profileName = profileNameDraft.trim().ifBlank { "Creator" }
-                    profileEmail = profileEmailDraft.trim()
-                    profilePrefs.edit()
-                        .putString("display_name", profileName)
-                        .putString("email", profileEmail)
-                        .apply()
-                    showProfile = false
-                }) { Text("Save profile", color = Accent, fontWeight = FontWeight.SemiBold) }
+                if (accountPanel == "Profile") {
+                    TextButton(onClick = {
+                        profileName = profileNameDraft.trim().ifBlank { "Creator" }
+                        profileEmail = profileEmailDraft.trim()
+                        profilePrefs.edit().putString("display_name", profileName).putString("email", profileEmail).apply()
+                        showProfile = false
+                    }) { Text("Save profile", color = Accent, fontWeight = FontWeight.SemiBold) }
+                } else {
+                    TextButton(onClick = {
+                        val email = profileEmailDraft.trim()
+                        accountNotice = when {
+                            !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> "Please enter a valid email address."
+                            forgotPasswordMode -> "Password recovery will be enabled after Supabase is connected."
+                            accountPassword.length < 8 -> "Use a password with at least 8 characters."
+                            accountPanel == "Sign up" && accountPassword != accountConfirmPassword -> "The passwords do not match."
+                            else -> "The form is ready. Connect Supabase to enable secure ${if (accountPanel == "Sign up") "account creation" else "sign in"}."
+                        }
+                    }) { Text(if (forgotPasswordMode) "Continue" else if (accountPanel == "Sign up") "Create account" else "Sign in", color = Accent, fontWeight = FontWeight.SemiBold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    profileNameDraft = profileName
-                    profileEmailDraft = profileEmail
-                    showProfile = false
-                }) { Text("Cancel", color = Muted) }
+                if (accountPanel != "Profile") {
+                    TextButton(onClick = {
+                        accountPanel = "Profile"
+                        forgotPasswordMode = false
+                        accountNotice = ""
+                    }) { Text("Guest mode", color = Muted) }
+                } else {
+                    TextButton(onClick = {
+                        profileNameDraft = profileName
+                        profileEmailDraft = profileEmail
+                        showProfile = false
+                    }) { Text("Close", color = Muted) }
+                }
             },
             containerColor = Color.White
         )
     }
+
 }
 
 @Composable
