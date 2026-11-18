@@ -161,6 +161,11 @@ fun StudioApp() {
     var showProjects by remember { mutableStateOf(false) }
     var projectPendingDelete by remember { mutableStateOf<ProjectSummary?>(null) }
     var showProfile by remember { mutableStateOf(false) }
+    val profilePrefs = remember { context.getSharedPreferences("studio_profile", Context.MODE_PRIVATE) }
+    var profileName by remember { mutableStateOf(profilePrefs.getString("display_name", "Creator") ?: "Creator") }
+    var profileEmail by remember { mutableStateOf(profilePrefs.getString("email", "") ?: "") }
+    var profileNameDraft by remember { mutableStateOf(profileName) }
+    var profileEmailDraft by remember { mutableStateOf(profileEmail) }
     var lastProjectId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceId by remember { mutableStateOf<String?>(null) }
     var sceneToReplaceProjectId by remember { mutableStateOf<String?>(null) }
@@ -764,9 +769,86 @@ fun StudioApp() {
     if (showProfile) {
         AlertDialog(
             onDismissRequest = { showProfile = false },
-            title = { Text("Profile", fontWeight = FontWeight.Bold) },
-            text = { Text("Profile settings will be added later.") },
-            confirmButton = { TextButton(onClick = { showProfile = false }) { Text("Close") } },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(
+                        Modifier.size(42.dp).background(AccentSoft, RoundedCornerShape(50)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            profileName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "C",
+                            color = Accent,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp
+                        )
+                    }
+                    Column {
+                        Text("Your Profile", fontWeight = FontWeight.Bold)
+                        Text("Animation Studio", color = Muted, fontSize = 11.sp)
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Display name", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = profileNameDraft,
+                        onValueChange = { profileNameDraft = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("Your name") },
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Text("Email address", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = profileEmailDraft,
+                        onValueChange = { profileEmailDraft = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("name@example.com") },
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = AccentSoft,
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = Accent, modifier = Modifier.size(17.dp))
+                                Text("Local profile", color = Accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            }
+                            Text(
+                                "Your projects remain on this device. Secure sign-up, Google login and cloud sync will be connected after the account backend is configured.",
+                                color = Muted,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    profileName = profileNameDraft.trim().ifBlank { "Creator" }
+                    profileEmail = profileEmailDraft.trim()
+                    profilePrefs.edit()
+                        .putString("display_name", profileName)
+                        .putString("email", profileEmail)
+                        .apply()
+                    showProfile = false
+                }) { Text("Save profile", color = Accent, fontWeight = FontWeight.SemiBold) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    profileNameDraft = profileName
+                    profileEmailDraft = profileEmail
+                    showProfile = false
+                }) { Text("Cancel", color = Muted) }
+            },
             containerColor = Color.White
         )
     }
