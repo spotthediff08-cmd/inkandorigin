@@ -38,3 +38,8 @@ Signed test releases are published on the GitHub Releases page. Install the APK 
 ## Account UI test build
 
 Version 1.3.1 prepares the local profile and account screens: profile editing, sign-in, sign-up, password confirmation and validation, forgot-password entry, Google sign-in entry point, and guest mode. Authentication actions are intentionally not active until Supabase is configured. User projects continue to work locally without an account.
+
+
+## Version 1.3.1 release
+
+This release includes the prepared account interface. Supabase authentication and cloud sync will be enabled in a later update.
