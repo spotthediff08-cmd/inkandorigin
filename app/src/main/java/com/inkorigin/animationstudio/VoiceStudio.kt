@@ -51,7 +51,7 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                 voices = found
                 selected = found.firstOrNull()
                 ready = true
-                status = if (found.isEmpty()) "No offline voices found. Install voices in Android Text-to-Speech settings." else "Ready • §{found.size} installed offline voices"
+                status = if (found.isEmpty()) "No offline voices found. Install voices in Android Text-to-Speech settings." else "Ready • ${found.size} installed offline voices"
             } else status = "Android Text-to-Speech initialization failed."
         }
         tts = engine
@@ -78,22 +78,22 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
         Text("Use voices installed on your Android device. No API key or subscription.", color = Muted)
         OutlinedTextField(script, { script = it }, Modifier.fillMaxWidth().height(230.dp), label = { Text("Paste your complete script") }, placeholder = { Text("Paste narration here…") }, minLines = 8)
         ExposedDropdownMenuBox(expanded, { expanded = it }) {
-            OutlinedTextField(selected?.let { "§{it.name} • §{it.locale.displayName}" } ?: "Choose a voice", {}, Modifier.fillMaxWidth().menuAnchor(), readOnly = true, label = { Text("Android voice") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
+            OutlinedTextField(selected?.let { "${it.name} • ${it.locale.displayName}" } ?: "Choose a voice", {}, Modifier.fillMaxWidth().menuAnchor(), readOnly = true, label = { Text("Android voice") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
             ExposedDropdownMenu(expanded, { expanded = false }) {
-                voices.forEach { voice -> DropdownMenuItem(text = { Text("§{voice.name} • §{voice.locale.displayName}") }, onClick = { selected = voice; expanded = false }) }
+                voices.forEach { voice -> DropdownMenuItem(text = { Text("${voice.name} • ${voice.locale.displayName}") }, onClick = { selected = voice; expanded = false }) }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Speech speed: §{"%.2f".format(rate)}×")
+                Text("Speech speed: ${"%.2f".format(rate)}×")
                 Slider(rate, { rate = it }, valueRange = 0.7f..1.3f)
-                Text("Pitch: §{"%.2f".format(pitch)}×")
+                Text("Pitch: ${"%.2f".format(pitch)}×")
                 Slider(pitch, { pitch = it }, valueRange = 0.8f..1.2f)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(enabled = ready && !busy && script.isNotBlank() && selected != null, onClick = {
-                tts?.apply { setVoice(selected); setSpeechRate(rate); setPitch(pitch); speak(script.take(3000), TextToSpeech.QUEUE_FLUSH, Bundle(), "preview-§{UUID.randomUUID()}") }
+                tts?.apply { setVoice(selected); setSpeechRate(rate); setPitch(pitch); speak(script.take(3000), TextToSpeech.QUEUE_FLUSH, Bundle(), "preview-${UUID.randomUUID()}") }
                 status = "Playing short voice preview"
             }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.PlayArrow, null); Text(" Preview") }
             Button(enabled = ready && !busy && script.isNotBlank() && selected != null, onClick = {
@@ -109,18 +109,18 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                         val dir = File(context.cacheDir, "voice-studio").apply { mkdirs() }
                         val outputs = mutableListOf<File>()
                         parts.forEachIndexed { index, part ->
-                            status = "Generating chunk §{index + 1} / §{parts.size}…"
-                            val file = File(dir, "voice-§{UUID.randomUUID()}.wav")
+                            status = "Generating chunk ${index + 1} / ${parts.size}…"
+                            val file = File(dir, "voice-${UUID.randomUUID()}.wav")
                             synthesizeToWav(engine, part, file)
                             outputs += file
                         }
-                        val finalFile = File(File(context.filesDir, "voiceovers").apply { mkdirs() }, "voiceover-§{System.currentTimeMillis()}.wav")
+                        val finalFile = File(File(context.filesDir, "voiceovers").apply { mkdirs() }, "voiceover-${System.currentTimeMillis()}.wav")
                         withContext(Dispatchers.IO) { joinPcmWavFiles(outputs, finalFile) }
                         outputs.forEach { it.delete() }
                         onAudioReady(Uri.fromFile(finalFile), finalFile.name)
-                        status = "Voiceover generated • §{parts.size} chunks combined"
+                        status = "Voiceover generated • ${parts.size} chunks combined"
                     } catch (e: Exception) {
-                        status = "Generation failed: §{e.message ?: "Try another installed TTS voice"}"
+                        status = "Generation failed: ${e.message ?: "Try another installed TTS voice"}"
                     } finally { busy = false }
                 }
             }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.RecordVoiceOver, null); Text(if (busy) "Working…" else "Generate") }
@@ -138,7 +138,7 @@ private suspend fun synthesizeToWav(engine: TextToSpeech, text: String, file: Fi
             override fun onDone(utteranceId: String?) { if (utteranceId == id && cont.isActive) cont.resume(Unit) }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS synthesis failed")) }
-            override fun onError(utteranceId: String?, errorCode: Int) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS error §{errorCode}")) }
+            override fun onError(utteranceId: String?, errorCode: Int) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS error ${errorCode}")) }
         })
         val result = engine.synthesizeToFile(text, Bundle(), file, id)
         if (result != TextToSpeech.SUCCESS && cont.isActive) cont.resumeWithException(IllegalStateException("TTS rejected this text chunk"))
