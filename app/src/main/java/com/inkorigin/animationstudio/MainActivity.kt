@@ -405,18 +405,17 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
-                    listOf("Home", "Voice", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
-                        val destination = if (item == "Board") "Storyboard" else item
+                    listOf("Home", "Create", "Storyboard", "Captions", "Export").forEach { item ->
+                        val destination = when (item) { "Create" -> "Scenes"; "Captions" -> "Subtitles"; else -> item }
                         NavigationBarItem(
                             selected = tab == destination,
                             onClick = { tab = destination },
                             icon = {
                                 Icon(
                                     when (item) {
-                                        "Voice" -> Icons.Default.RecordVoiceOver
-                                        "Scenes" -> Icons.Default.Collections
-                                        "Board" -> Icons.Default.Folder
-                                        "Subtitles" -> Icons.Default.Subtitles
+                                        "Create" -> Icons.Default.AddPhotoAlternate
+                                        "Storyboard" -> Icons.Default.Folder
+                                        "Captions" -> Icons.Default.Subtitles
                                         "Export" -> Icons.Default.Movie
                                         else -> Icons.Default.Home
                                     },
@@ -508,7 +507,6 @@ fun StudioApp() {
                         downloadingUpdate = false
                     }
                 } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
-                "Voice" -> VoiceStudioPage(Modifier.fillMaxSize()) { uri, fileName -> audio = uri; status = "Generated voiceover ready: $fileName"; tab = "Home" }
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
@@ -612,44 +610,12 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("WELCOME TO YOUR STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                Text("Make something\nthat stays.", fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
-                Text("Turn your scenes, voice and story into a finished film.", color = Muted, fontSize = 13.sp)
+                Text("YOUR CREATIVE WORKSPACE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("Welcome back", fontSize = 27.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp)
+                Text("Create, organise and edit your video projects.", color = Muted, fontSize = 13.sp)
             }
         }
-        item {
-            Box(
-                Modifier.fillMaxWidth()
-                    .background(Panel, RoundedCornerShape(22.dp)).then(Modifier.padding(0.dp))
-                    .padding(20.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = Accent, modifier = Modifier.size(16.dp))
-                        Text("YOUR NEXT PROJECT", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    }
-                    Text("Bring your story\nto life.", color = Color(0xFF171B24), fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
-                    Text("A focused workspace for cinematic scenes and narration.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
-                    Button(
-                        onClick = goScenes,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = count > 0,
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White, disabledContainerColor = Accent.copy(alpha = 0.35f))
-                    ) {
-                        Icon(Icons.Default.PlayArrow, null)
-                        Spacer(Modifier.width(7.dp))
-                        Text(if (count > 0) "Open Scene Editor" else "Add scenes to get started", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
-                StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.weight(1f))
-                StudioStatCard("VOICEOVER", if (hasAudio) "Ready" else "Missing", Icons.Default.Mic, Modifier.weight(1f))
-                StudioStatCard("TIMELINE SRT", if (srt.contains("-->")) "Loaded" else "Missing", Icons.Default.Subtitles, Modifier.weight(1f))
-            }
-        }
+        item { StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.fillMaxWidth()) }
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -707,9 +673,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                 Text("STEP 01–03", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        item { ActionCard("Image folder", "$count images • Select your storyboard images", Icons.Default.Folder, addFolder) }
-        item { ActionCard("Voiceover", if (hasAudio) "Narration audio selected" else "Choose your narration audio", Icons.Default.Mic, addAudio) }
-        item { ActionCard("Timeline subtitles", srt, Icons.Default.Subtitles, addSrt) }
+        item { ActionCard("Add scene images", "$count images selected • Choose your storyboard images", Icons.Default.Collections, addFolder) }
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -722,7 +686,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                         Spacer(Modifier.width(8.dp))
                         Text("Simple workflow", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
-                    Text("1  Import your image folder\n2  Add voiceover audio\n3  Import timeline SRT\n4  Add word-level SRT in Subtitles\n5  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
+                    Text("1  Add your scene images\n2  Arrange scenes and set timing\n3  Preview your video\n4  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
                     Button(onClick = goScenes, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Manage scenes") }
                 }
             }
