@@ -73,9 +73,9 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("VOICE STUDIO", color = Accent, style = MaterialTheme.typography.labelSmall)
+        Text("VOICE STUDIO", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
         Text("Create narration", style = MaterialTheme.typography.headlineMedium)
-        Text("Use voices installed on your Android device. No API key or subscription.", color = Muted)
+        Text("Use voices installed on your Android device. No API key or subscription.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(script, { script = it }, Modifier.fillMaxWidth().height(230.dp), label = { Text("Paste your complete script") }, placeholder = { Text("Paste narration here…") }, minLines = 8)
         ExposedDropdownMenuBox(expanded, { expanded = it }) {
             OutlinedTextField(selected?.let { "${it.name} • ${it.locale.displayName}" } ?: "Choose a voice", {}, Modifier.fillMaxWidth().menuAnchor(), readOnly = true, label = { Text("Android voice") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
@@ -83,7 +83,7 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                 voices.forEach { voice -> DropdownMenuItem(text = { Text("${voice.name} • ${voice.locale.displayName}") }, onClick = { selected = voice; expanded = false }) }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Speech speed: ${"%.2f".format(rate)}×")
                 Slider(rate, { rate = it }, valueRange = 0.7f..1.3f)
@@ -125,8 +125,8 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                 }
             }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.RecordVoiceOver, null); Text(if (busy) "Working…" else "Generate") }
         }
-        Text(status, color = Muted, style = MaterialTheme.typography.bodySmall)
-        Text("Long scripts are split at sentence or phrase boundaries. Voice quality and supported audio formats depend on the TTS engine installed on your phone.", color = Muted, style = MaterialTheme.typography.bodySmall)
+        Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Text("Long scripts are split at sentence or phrase boundaries. Voice quality and supported audio formats depend on the TTS engine installed on your phone.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 }
 
