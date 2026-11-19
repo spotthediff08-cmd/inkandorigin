@@ -405,7 +405,7 @@ fun StudioApp() {
             },
             bottomBar = {
                 NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
-                    listOf("Home", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
+                    listOf("Home", "Voice", "Scenes", "Board", "Subtitles", "Export").forEach { item ->
                         val destination = if (item == "Board") "Storyboard" else item
                         NavigationBarItem(
                             selected = tab == destination,
@@ -413,6 +413,7 @@ fun StudioApp() {
                             icon = {
                                 Icon(
                                     when (item) {
+                                        "Voice" -> Icons.Default.RecordVoiceOver
                                         "Scenes" -> Icons.Default.Collections
                                         "Board" -> Icons.Default.Folder
                                         "Subtitles" -> Icons.Default.Subtitles
@@ -507,6 +508,7 @@ fun StudioApp() {
                         downloadingUpdate = false
                     }
                 } }, { -> try { val uri = downloadedApkUri ?: return@HomePage; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) { updateMessage = "Allow installs from this app, return here, then tap Install Update."; context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))) } else { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)) } } catch (e: Exception) { updateMessage = "Cannot open installer: ${e.message ?: "Unknown error"}" } })
+                "Voice" -> VoiceStudioPage(Modifier.fillMaxSize()) { uri, fileName -> audio = uri; status = "Generated voiceover ready: $fileName"; tab = "Home" }
                 "Scenes" -> ScenesPage(Modifier.fillMaxSize(), scenes, ::updateScenes, { imagePicker.launch(arrayOf("image/*")) }, { _, scene -> sceneToReplaceId = scene.id; sceneToReplaceProjectId = projectId; replaceImagePicker.launch(arrayOf("image/*")) }, { tab = "Export" }, globalMotion, { selectedMotion -> globalMotion = selectedMotion; updateScenes(scenes.map { scene -> scene.copy(motion = selectedMotion) }) }, sceneUndo.isNotEmpty(), sceneRedo.isNotEmpty(), ::undoScenes, ::redoScenes, wordSrtText, audio, transition, subtitleFontSize, subtitleColor, subtitlePosition, subtitleOutline, subtitleBackground, aspectRatio)
                 "Storyboard" -> Unit
             "Subtitles" -> SubtitlePage(Modifier.fillMaxSize(), wordSrtName, wordSrtText, { wordSrtText = it }, { wordSrtPicker.launch(arrayOf("application/x-subrip", "text/plain", "*/*")) }, subtitleFontSize, { subtitleFontSize = it }, subtitleColor, { subtitleColor = it }, subtitlePosition, { subtitlePosition = it }, subtitleOutline, { subtitleOutline = it }, subtitleBackground, { subtitleBackground = it })
