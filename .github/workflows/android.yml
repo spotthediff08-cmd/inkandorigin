@@ -80,3 +80,5 @@ jobs:
           overwrite_files: true
           generate_release_notes: true
           make_latest: true
+
+# Feature branch validation enabled for the current studio changes.
