@@ -1,6 +1,9 @@
 package com.inkorigin.animationstudio
 
 import android.media.MediaPlayer
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -41,6 +44,24 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Preparing Android voices…") }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var generatedAudio by remember { mutableStateOf<File?>(null) }
+    var finalPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var isPlayingFinal by remember { mutableStateOf(false) }
+
+    val saveAudioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { destination ->
+        val source = generatedAudio
+        if (destination != null && source != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(destination)?.use { output -> source.inputStream().use { it.copyTo(output) } }
+                    ?: error("Could not open the selected destination")
+            }.onSuccess { status = "Audio exported successfully" }
+                .onFailure { status = "Audio export failed: ${it.message ?: "Try again"}" }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { runCatching { finalPlayer?.release() }; finalPlayer = null }
+    }
 
     DisposableEffect(context) {
         val engine = TextToSpeech(context) { result ->
@@ -117,13 +138,33 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                         val finalFile = File(File(context.filesDir, "voiceovers").apply { mkdirs() }, "voiceover-${System.currentTimeMillis()}.wav")
                         withContext(Dispatchers.IO) { joinPcmWavFiles(outputs, finalFile) }
                         outputs.forEach { it.delete() }
-                        onAudioReady(Uri.fromFile(finalFile), finalFile.name)
-                        status = "Voiceover generated • ${parts.size} chunks combined"
+                        generatedAudio = finalFile
+                        status = "Voiceover generated • ${parts.size} chunks combined • preview or export it below"
                     } catch (e: Exception) {
                         status = "Generation failed: ${e.message ?: "Try another installed TTS voice"}"
                     } finally { busy = false }
                 }
             }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.RecordVoiceOver, null); Text(if (busy) "Working…" else "Generate") }
+        }
+        if (generatedAudio != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(enabled = !busy, onClick = {
+                    val file = generatedAudio ?: return@OutlinedButton
+                    runCatching {
+                        finalPlayer?.release()
+                        finalPlayer = MediaPlayer().apply {
+                            setDataSource(context, Uri.fromFile(file))
+                            setOnCompletionListener { player -> player.release(); finalPlayer = null; isPlayingFinal = false }
+                            setOnPreparedListener { player -> player.start(); isPlayingFinal = true }
+                            prepareAsync()
+                        }
+                    }.onFailure { status = "Playback failed: ${it.message ?: "Unable to play audio"}" }
+                }, modifier = Modifier.weight(1f)) { Text("▶ Preview final") }
+                OutlinedButton(enabled = !busy, onClick = { generatedAudio?.let { saveAudioLauncher.launch(it.name) } }, modifier = Modifier.weight(1f)) { Text("Export WAV") }
+            }
+            Button(enabled = !busy, onClick = { generatedAudio?.let { onAudioReady(Uri.fromFile(it), it.name) } }, modifier = Modifier.fillMaxWidth()) {
+                Text("Use this voiceover in project")
+            }
         }
         Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         Text("Long scripts are split at sentence or phrase boundaries. Voice quality and supported audio formats depend on the TTS engine installed on your phone.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -140,9 +181,8 @@ private suspend fun synthesizeToWav(engine: TextToSpeech, text: String, file: Fi
             override fun onError(utteranceId: String?) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS synthesis failed")) }
             override fun onError(utteranceId: String?, errorCode: Int) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS error ${errorCode}")) }
         })
-        val params = hashMapOf(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID to id)
-        @Suppress("DEPRECATION")
-        val result = engine.synthesizeToFile(text, params, file.absolutePath)
+        val params = Bundle().apply { putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, id) }
+        val result = engine.synthesizeToFile(text, params, file, id)
         if (result != TextToSpeech.SUCCESS && cont.isActive) cont.resumeWithException(IllegalStateException("TTS rejected this text chunk"))
         cont.invokeOnCancellation { engine.stop(); file.delete() }
     }
