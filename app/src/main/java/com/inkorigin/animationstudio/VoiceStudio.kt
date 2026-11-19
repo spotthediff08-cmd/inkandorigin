@@ -140,7 +140,9 @@ private suspend fun synthesizeToWav(engine: TextToSpeech, text: String, file: Fi
             override fun onError(utteranceId: String?) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS synthesis failed")) }
             override fun onError(utteranceId: String?, errorCode: Int) { if (utteranceId == id && cont.isActive) cont.resumeWithException(IllegalStateException("TTS error ${errorCode}")) }
         })
-        val result = engine.synthesizeToFile(text, Bundle(), file, id)
+        val params = hashMapOf(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID to id)
+        @Suppress("DEPRECATION")
+        val result = engine.synthesizeToFile(text, params, file.absolutePath)
         if (result != TextToSpeech.SUCCESS && cont.isActive) cont.resumeWithException(IllegalStateException("TTS rejected this text chunk"))
         cont.invokeOnCancellation { engine.stop(); file.delete() }
     }
