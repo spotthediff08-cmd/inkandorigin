@@ -628,13 +628,13 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                         Icon(Icons.Default.AutoAwesome, null, tint = Accent, modifier = Modifier.size(16.dp))
                         Text("YOUR NEXT PROJECT", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     }
-                    Text("Bring your story\nto life.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
+                    Text("Bring your story\nto life.", color = Color(0xFF171B24), fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
                     Text("A focused workspace for cinematic scenes and narration.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                     Button(
                         onClick = goScenes,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = count > 0,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF171322), disabledContainerColor = Color.White.copy(alpha = 0.24f))
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White, disabledContainerColor = Accent.copy(alpha = 0.35f))
                     ) {
                         Icon(Icons.Default.PlayArrow, null)
                         Spacer(Modifier.width(7.dp))
