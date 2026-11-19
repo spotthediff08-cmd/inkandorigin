@@ -114,7 +114,7 @@ fun VoiceStudioPage(modifier: Modifier = Modifier, onAudioReady: (Uri, String) -
                             synthesizeToWav(engine, part, file)
                             outputs += file
                         }
-                        val finalFile = File(context.cacheDir, "voiceover-§{System.currentTimeMillis()}.wav")
+                        val finalFile = File(File(context.filesDir, "voiceovers").apply { mkdirs() }, "voiceover-§{System.currentTimeMillis()}.wav")
                         withContext(Dispatchers.IO) { joinPcmWavFiles(outputs, finalFile) }
                         outputs.forEach { it.delete() }
                         onAudioReady(Uri.fromFile(finalFile), finalFile.name)
