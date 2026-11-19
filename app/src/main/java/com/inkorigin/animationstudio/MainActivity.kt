@@ -93,13 +93,13 @@ private suspend fun checkLatestStudioRelease(context: android.content.Context): 
     }
 }
 
-private val Bg = Color(0xFF090B10)
-private val Panel = Color(0xFF141925)
-private val PanelElevated = Color(0xFF1B2230)
-private val Accent = Color(0xFFB69CFF)
-private val AccentSoft = Color(0xFF302747)
-private val Muted = Color(0xFF98A2B3)
-private val Outline = Color(0xFF293244)
+private val Bg = Color(0xFFF7F8FA)
+private val Panel = Color(0xFFFFFFFF)
+private val PanelElevated = Color(0xFFF1F3F6)
+private val Accent = Color(0xFF4169D8)
+private val AccentSoft = Color(0xFFEAF0FF)
+private val Muted = Color(0xFF697586)
+private val Outline = Color(0xFFE4E7EC)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -383,11 +383,11 @@ fun StudioApp() {
         }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = Accent, onPrimary = Color(0xFF171022),
-        secondary = Color(0xFF79D7D0), onSecondary = Color(0xFF071313),
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = Accent, onPrimary = Color.White,
+        secondary = Color(0xFF238A83), onSecondary = Color.White,
         background = Bg, surface = Panel, surfaceVariant = PanelElevated,
-        onBackground = Color(0xFFF4F2FA), onSurface = Color(0xFFF4F2FA),
+        onBackground = Color(0xFF171B24), onSurface = Color(0xFF171B24),
         onSurfaceVariant = Muted, outline = Outline
     ), shapes = Shapes(
         extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
@@ -620,16 +620,16 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
         item {
             Box(
                 Modifier.fillMaxWidth()
-                    .background(Brush.linearGradient(listOf(Color(0xFF302448), Color(0xFF1D2638), Color(0xFF172D35))), RoundedCornerShape(26.dp))
+                    .background(Panel, RoundedCornerShape(22.dp)).then(Modifier.padding(0.dp))
                     .padding(20.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFFE4D8FF), modifier = Modifier.size(16.dp))
-                        Text("YOUR NEXT PROJECT", color = Color(0xFFE4D8FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Icon(Icons.Default.AutoAwesome, null, tint = Accent, modifier = Modifier.size(16.dp))
+                        Text("YOUR NEXT PROJECT", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     }
                     Text("Bring your story\nto life.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
-                    Text("A focused workspace for cinematic scenes and narration.", color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp, lineHeight = 18.sp)
+                    Text("A focused workspace for cinematic scenes and narration.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                     Button(
                         onClick = goScenes,
                         modifier = Modifier.fillMaxWidth(),
