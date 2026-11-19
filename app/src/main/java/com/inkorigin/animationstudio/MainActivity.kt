@@ -610,18 +610,41 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("YOUR CREATIVE WORKSPACE", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
-                Text("Welcome back", fontSize = 27.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp)
-                Text("Create, organise and edit your video projects.", color = Muted, fontSize = 13.sp)
+                Text("WELCOME TO YOUR STUDIO", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("Make something\nthat stays.", fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp)
+                Text("Turn your scenes, voice and story into a finished film.", color = Muted, fontSize = 13.sp)
             }
         }
-        item { StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.fillMaxWidth()) }
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Outline.copy(alpha = 0.65f))
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(Brush.linearGradient(listOf(Color(0xFF302448), Color(0xFF1D2638), Color(0xFF172D35))), RoundedCornerShape(26.dp))
+                    .padding(20.dp)
             ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFFE4D8FF), modifier = Modifier.size(16.dp))
+                        Text("YOUR NEXT PROJECT", color = Color(0xFFE4D8FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    }
+                    Text("Bring your story\nto life.", color = Color.White, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold)
+                    Text("A focused workspace for cinematic scenes and narration.", color = Color.White.copy(alpha = 0.72f), fontSize = 12.sp, lineHeight = 18.sp)
+                    Button(
+                        onClick = goScenes,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = count > 0,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF171322), disabledContainerColor = Color.White.copy(alpha = 0.24f))
+                    ) {
+                        Icon(Icons.Default.PlayArrow, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text(if (count > 0) "Open Scene Editor" else "Add scenes to get started", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                StudioStatCard("SCENES", count.toString(), Icons.Default.Collections, Modifier.weight(1f))
+                StudioStatCard("VOICEOVER", if (hasAudio) "Ready" else "Missing", Icons.Default.Mic, Modifier.weight(1f)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -673,7 +696,8 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                 Text("STEP 01–03", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
-        item { ActionCard("Add scene images", "$count images selected • Choose your storyboard images", Icons.Default.Collections, addFolder) }
+        item { ActionCard("Image folder", "$count images • Select your storyboard images", Icons.Default.Folder, addFolder) }
+        item { ActionCard("Voiceover", if (hasAudio) "Narration audio selected" else "Choose your narration audio", Icons.Default.Mic, addAudio) } 
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -686,7 +710,7 @@ fun HomePage(modifier: Modifier, name: String, setName: (String)->Unit, count: I
                         Spacer(Modifier.width(8.dp))
                         Text("Simple workflow", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
-                    Text("1  Add your scene images\n2  Arrange scenes and set timing\n3  Preview your video\n4  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
+                    Text("1  Import your image folder\n2  Add voiceover audio\n3  Arrange and manage scenes\n4  Add captions if needed\n5  Export your MP4", color = Muted, lineHeight = 22.sp, fontSize = 12.sp)
                     Button(onClick = goScenes, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Manage scenes") }
                 }
             }
